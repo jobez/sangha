@@ -53,12 +53,11 @@ void AppUnload(struct app_t * app) {
 
 int main() {
   struct app_t app = {0};
-  for (int i = 0; i < 1000; i += 1) {
+  while(1) {
     AppLoad(&app);
     if (app.handle != NULL)
       if (app.api.Step(app.state) != 0)
         break;
-    usleep(100000);
   }
   AppUnload(&app);
   return 0;

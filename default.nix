@@ -5,6 +5,7 @@ in stdenv.mkDerivation rec {
   name = "sangha";
 
   buildInputs = [
+    glew
     gst_all_1.gstreamer
     gst_all_1.gst-editing-services
     gst_all_1.gst-plugins-bad
@@ -15,8 +16,5 @@ in stdenv.mkDerivation rec {
     pkgconfig
     glfw
   ];
-shellHook = ''
-
-
-'';
+shellHook = '' '';
 }
