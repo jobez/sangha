@@ -1,23 +1,16 @@
-all: libapp.so main
-
-CXX = g++
+CFLAGS = -fPIC -O0 -g
 LDLIBS = -ldl
-CFLAGS =-fPIC -O0 -g
 
-%.h: %.cc.lisp
-	cm-cxx -E "(require :cm-ifs)" -E '(setf cm-ifs:*gen-interface* t)' $< -o $@
+all: main libapp.so
 
-%.cc: %.cc.lisp
-	cm-cxx -E "(require :cm-ifs)" -E '(setf cm-ifs:*gen-interface* nil)'  $< -o $@
+main: main.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
 
-libapp.so: api.h app.cc
-	$(CXX) $^ -fpermissive $(CFLAGS) -shared $(LDFLAGS) -o $@ $< $(LDLIBS)
-
-main: main.cc
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
+libapp.so: app.c
+	$(CC) $(CFLAGS) -shared $(LDFLAGS) -o $@ $< $(LDLIBS)
 
 test: main libapp.so
 	./$<
 
 clean:
-	rm -f *.cc *.h *.so
+	$(RM) main libapp.so
