@@ -11,18 +11,18 @@ struct app_t {
   ino_t  id;
 };
 
-static void AppLoad(struct app_t * app) {
+static void AppLoad(const char* shared_object_path, struct app_t * app) {
   struct stat attr = {0};
-  if ((stat("./libapp.so", &attr) == 0) && (app->id != attr.st_ino)) {
+  if ((stat(shared_object_path, &attr) == 0) && (app->id != attr.st_ino)) {
     if (app->handle != NULL) {
       app->api.Unload(app->state);
       dlclose(app->handle);
     }
-    void * handle = dlopen("./libapp.so", RTLD_NOW);
+    void * handle = dlopen(shared_object_path, RTLD_NOW);
     if (handle != NULL) {
       app->handle = handle;
       app->id = attr.st_ino;
-      struct api_t * api = dlsym(app->handle, "APP_API");
+      struct api_t * api = (api_t*)dlsym(app->handle, "APP_API");
       if (api != NULL) {
         app->api = api[0];
         if (app->state == NULL)
@@ -52,13 +52,13 @@ void AppUnload(struct app_t * app) {
 }
 
 int main() {
-  struct app_t app = {0};
+  struct app_t renderer = {0};
   while(1) {
-    AppLoad(&app);
-    if (app.handle != NULL)
-      if (app.api.Step(app.state) != 0)
+    AppLoad("./librenderer.so", &renderer);
+    if (renderer.handle != NULL)
+      if (renderer.api.Step(renderer.state) != 0)
         break;
   }
-  AppUnload(&app);
+  AppUnload(&renderer);
   return 0;
 }
