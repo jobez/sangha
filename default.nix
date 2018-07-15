@@ -12,6 +12,8 @@ in stdenv.mkDerivation rec {
     gst_all_1.gst-plugins-base
     gst_all_1.gst-libav
     xorg.libX11
+    libpng
+    freeglut
     libGLU_combined
     pkgconfig
     glfw

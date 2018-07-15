@@ -7,6 +7,118 @@
 #include <stdio.h>
 #include <vector>
 #include "api.h"
+#define PNG_DEBUG 3
+#include <png.h>
+
+
+
+ static int save_png(std::string filename,
+                     int width, int height, int bitdepth, int colortype,
+                     unsigned char* data, int pitch,
+                     int transform = PNG_TRANSFORM_IDENTITY);
+
+
+
+ /* ----------------------------------------------------------------------- */
+
+ static int save_png(std::string filename, int width, int height,
+                     int bitdepth, int colortype,
+                     unsigned char* data, int pitch, int transform)
+ {
+   int i = 0;
+   int r = 0;
+   FILE* fp = NULL;
+   png_structp png_ptr = NULL;
+   png_infop info_ptr = NULL;
+   png_bytep* row_pointers = NULL;
+
+   if (NULL == data) {
+     printf("Error: failed to save the png because the given data is NULL.\n");
+     r = -1;
+     goto error;
+   }
+
+   if (0 == filename.size()) {
+     printf("Error: failed to save the png because the given filename length is 0.\n");
+     r = -2;
+     goto error;
+   }
+
+   if (0 == pitch) {
+     printf("Error: failed to save the png because the given pitch is 0.\n");
+     r = -3;
+     goto error;
+   }
+
+   fp = fopen(filename.c_str(), "wb");
+   if (NULL == fp) {
+     printf("Error: failed to open the png file: %s\n", filename.c_str());
+     r = -4;
+     goto error;
+   }
+
+   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+   if (NULL == png_ptr) {
+     printf("Error: failed to create the png write struct.\n");
+     r = -5;
+     goto error;
+   }
+
+   info_ptr = png_create_info_struct(png_ptr);
+   if (NULL == info_ptr) {
+     printf("Error: failed to create the png info struct.\n");
+     r = -6;
+     goto error;
+   }
+
+   png_set_IHDR(png_ptr,
+                info_ptr,
+                width,
+                height,
+                bitdepth,                 /* e.g. 8 */
+                colortype,                /* PNG_COLOR_TYPE_{GRAY, PALETTE, RGB, RGB_ALPHA, GRAY_ALPHA, RGBA, GA} */
+                PNG_INTERLACE_NONE,       /* PNG_INTERLACE_{NONE, ADAM7 } */
+                PNG_COMPRESSION_TYPE_BASE,
+                PNG_FILTER_TYPE_BASE);
+
+   row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * height);
+
+   for (i = 0; i < height; ++i) {
+     row_pointers[i] = data + i * pitch;
+   }
+
+   png_init_io(png_ptr, fp);
+   png_set_rows(png_ptr, info_ptr, row_pointers);
+   png_write_png(png_ptr, info_ptr, transform, NULL);
+
+  error:
+
+   if (NULL != fp) {
+     fclose(fp);
+     fp = NULL;
+   }
+
+   if (NULL != png_ptr) {
+
+     if (NULL == info_ptr) {
+       printf("Error: info ptr is null. not supposed to happen here.\n");
+     }
+
+     png_destroy_write_struct(&png_ptr, &info_ptr);
+     png_ptr = NULL;
+     info_ptr = NULL;
+   }
+
+   if (NULL != row_pointers) {
+     free(row_pointers);
+     row_pointers = NULL;
+   }
+
+   printf("And we're all free.\n");
+
+   return r;
+ }
+
 
 struct shader_t {
   GLenum type;
@@ -26,6 +138,7 @@ struct state_t {
   GLuint vao;
   GLuint vbo;
   struct shader_manager shader_m;
+  GLubyte* capture;
 };
 
 struct state_t * s = NULL;
@@ -35,6 +148,16 @@ float points[] = {
    0.5f, -0.5f,  0.0f,
   -0.5f, -0.5f,  0.0f
 };
+
+// constants
+const int SCREEN_WIDTH = 800;
+const int SCREEN_HEIGHT = 800;
+const int CHANNEL_COUNT = 4;
+const int DATA_SIZE = SCREEN_WIDTH * SCREEN_HEIGHT * CHANNEL_COUNT;
+const GLenum PIXEL_FORMAT = GL_BGRA;
+const int PBO_COUNT = 2;
+
+GLuint pboIds[PBO_COUNT];
 
 std::string get_file_contents(const char *filename)
 {
@@ -52,29 +175,13 @@ std::string get_file_contents(const char *filename)
   throw(errno);
 }
 
-const char* vertex_shader =
-  "#version 420\n"
-"in vec3 vp;"
-"void main() {"
-"  gl_Position = vec4(vp, 1.0);"
-"}";
-
-/* const char* fragment_shader = get_file_contents("./thing.frag").c_str(); */
-
-const char* fragment_shader =
-"#version 420\n"
-"out vec4 frag_colour;"
-"void main() {"
-"  frag_colour = vec4(0.15, 0.75, 0.15, 1.0);"
-"}";
-
 GLFWwindow* init_window() {
 
   if (!glfwInit()) {
     fprintf(stderr, "ERROR: could not start GLFW3\n");
   }
 
-  return glfwCreateWindow(800, 800, "sangha", NULL, NULL);
+  return glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "sangha", NULL, NULL);
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
@@ -91,6 +198,7 @@ static void * AppInit() {
 
   return state;
 }
+
 
 void shaderBoilerPlate(struct shader_manager& shader_m) {
   if (shader_m.shader_programme) {
@@ -135,13 +243,6 @@ void shaderBoilerPlate(struct shader_manager& shader_m) {
 
       }
 
-
-
-    /* // compile fragment */
-    /* GLuint fs = glCreateShader(GL_FRAGMENT_SHADER); */
-    /* glShaderSource(fs, 1, &fragment_shader, NULL); */
-    /* glCompileShader(fs); */
-
     // attatch and link
 
     glAttachShader(shader_programme, s);
@@ -178,7 +279,7 @@ static void AppLoad(void * state) {
   glEnable(GL_DEPTH_TEST); // enable depth-testing
   glDepthFunc(GL_LESS); // depth-testing interprets a smaller value as "closer"
 
-
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);      // 4-byte pixel alignment
   GLuint vbo = 0;
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -205,6 +306,14 @@ static void AppLoad(void * state) {
   s->shader_m.shaders.push_back(frag);
   s->shader_m.shaders.push_back(vert);
 
+
+  glGenBuffersARB(PBO_COUNT, pboIds);
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[0]);
+  glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, DATA_SIZE, 0, GL_STREAM_READ_ARB);
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[1]);
+  glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, DATA_SIZE, 0, GL_STREAM_READ_ARB);
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
   /* shaderBoilerPlate(s->shader_m); */
 
   printf("Reload\n");
@@ -234,14 +343,40 @@ void pollShaderFiles(struct shader_manager& shader_m) {
       //0
 
     }
-
-
   }
 }
 
 static int AppStep(void * state) {
-  s = (state_t*)state;
+
   pollShaderFiles(s->shader_m);
+  static int shift = 0;
+  static int index = 0;
+  int nextIndex = 0;
+
+  index = (index + 1) % PBO_COUNT;
+  nextIndex = (index + 1) % PBO_COUNT;
+
+  s = (state_t*)state;
+
+  glReadBuffer(GL_FRONT);
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
+  glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, 0);
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[nextIndex]);
+  s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
+
+  if (s->capture) {
+    /* save_png("./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RGBA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
+    glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
+
+  }
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+
+  glDrawBuffer(GL_BACK);
+
+
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glUseProgram(s->shader_m.shader_programme);
   glBindVertexArray(s->vao);
