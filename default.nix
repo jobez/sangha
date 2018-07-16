@@ -3,6 +3,39 @@ let
 in stdenv.mkDerivation rec {
   ffiPath = "${libffi.dev}/include";
   name = "sangha";
+  includePathGST = stdenv.lib.makeSearchPathOutput "dev" "include/gstreamer-1.0" ([
+    gst_all_1.gst-editing-services
+    gst-ffmpeg
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
+    gst_all_1.gst-plugins-ugly
+    gst_all_1.gst-libav
+
+
+  ]);
+
+  GST_PLUGIN_PATH = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" [
+    gst_all_1.gst-editing-services
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
+    gst_all_1.gst-plugins-ugly
+    gst_all_1.gst-libav
+    gst-ffmpeg
+
+  ];
+
+  LD_LIBRARY_PATH = stdenv.lib.makeLibraryPath [
+    gst_all_1.gst-editing-services
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
+    gst_all_1.gst-plugins-ugly
+    gst_all_1.gst-libav
+    gst-ffmpeg
+
+  ];
 
   buildInputs = [
     glew
@@ -18,5 +51,5 @@ in stdenv.mkDerivation rec {
     pkgconfig
     glfw
   ];
-shellHook = '' '';
+  shellHook = '' '';
 }

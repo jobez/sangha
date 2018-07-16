@@ -1,3 +1,4 @@
+#include <gst/app/gstappsrc.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <sys/mman.h>
@@ -6,119 +7,20 @@
 #include <string>
 #include <stdio.h>
 #include <vector>
-#include "api.h"
-#define PNG_DEBUG 3
-#include <png.h>
+#include "record.cc"
+/* #include "save_png.h" */
+#include <stdlib.h>
+#include <glib.h>
+
+#include <gst/gst.h>
+#include <gst/gstbuffer.h>
+#include <gst/app/gstappsink.h>
+#include "api.h"cord
 
 
+/* ----------------------------------------------------------------------- */
 
- static int save_png(std::string filename,
-                     int width, int height, int bitdepth, int colortype,
-                     unsigned char* data, int pitch,
-                     int transform = PNG_TRANSFORM_IDENTITY);
-
-
-
- /* ----------------------------------------------------------------------- */
-
- static int save_png(std::string filename, int width, int height,
-                     int bitdepth, int colortype,
-                     unsigned char* data, int pitch, int transform)
- {
-   int i = 0;
-   int r = 0;
-   FILE* fp = NULL;
-   png_structp png_ptr = NULL;
-   png_infop info_ptr = NULL;
-   png_bytep* row_pointers = NULL;
-
-   if (NULL == data) {
-     printf("Error: failed to save the png because the given data is NULL.\n");
-     r = -1;
-     goto error;
-   }
-
-   if (0 == filename.size()) {
-     printf("Error: failed to save the png because the given filename length is 0.\n");
-     r = -2;
-     goto error;
-   }
-
-   if (0 == pitch) {
-     printf("Error: failed to save the png because the given pitch is 0.\n");
-     r = -3;
-     goto error;
-   }
-
-   fp = fopen(filename.c_str(), "wb");
-   if (NULL == fp) {
-     printf("Error: failed to open the png file: %s\n", filename.c_str());
-     r = -4;
-     goto error;
-   }
-
-   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-   if (NULL == png_ptr) {
-     printf("Error: failed to create the png write struct.\n");
-     r = -5;
-     goto error;
-   }
-
-   info_ptr = png_create_info_struct(png_ptr);
-   if (NULL == info_ptr) {
-     printf("Error: failed to create the png info struct.\n");
-     r = -6;
-     goto error;
-   }
-
-   png_set_IHDR(png_ptr,
-                info_ptr,
-                width,
-                height,
-                bitdepth,                 /* e.g. 8 */
-                colortype,                /* PNG_COLOR_TYPE_{GRAY, PALETTE, RGB, RGB_ALPHA, GRAY_ALPHA, RGBA, GA} */
-                PNG_INTERLACE_NONE,       /* PNG_INTERLACE_{NONE, ADAM7 } */
-                PNG_COMPRESSION_TYPE_BASE,
-                PNG_FILTER_TYPE_BASE);
-
-   row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * height);
-
-   for (i = 0; i < height; ++i) {
-     row_pointers[i] = data + i * pitch;
-   }
-
-   png_init_io(png_ptr, fp);
-   png_set_rows(png_ptr, info_ptr, row_pointers);
-   png_write_png(png_ptr, info_ptr, transform, NULL);
-
-  error:
-
-   if (NULL != fp) {
-     fclose(fp);
-     fp = NULL;
-   }
-
-   if (NULL != png_ptr) {
-
-     if (NULL == info_ptr) {
-       printf("Error: info ptr is null. not supposed to happen here.\n");
-     }
-
-     png_destroy_write_struct(&png_ptr, &info_ptr);
-     png_ptr = NULL;
-     info_ptr = NULL;
-   }
-
-   if (NULL != row_pointers) {
-     free(row_pointers);
-     row_pointers = NULL;
-   }
-
-   printf("And we're all free.\n");
-
-   return r;
- }
-
+#include <thread>
 
 struct shader_t {
   GLenum type;
@@ -139,13 +41,14 @@ struct state_t {
   GLuint vbo;
   struct shader_manager shader_m;
   GLubyte* capture;
+  Vstr_t gstr;
 };
 
 struct state_t * s = NULL;
 
 float points[] = {
-   0.0f,  0.5f,  0.0f,
-   0.5f, -0.5f,  0.0f,
+  0.0f,  0.5f,  0.0f,
+  0.5f, -0.5f,  0.0f,
   -0.5f, -0.5f,  0.0f
 };
 
@@ -163,15 +66,15 @@ std::string get_file_contents(const char *filename)
 {
   std::FILE *fp = std::fopen(filename, "rb");
   if (fp)
-  {
-    std::string contents;
-    std::fseek(fp, 0, SEEK_END);
-    contents.resize(std::ftell(fp));
-    std::rewind(fp);
-    std::fread(&contents[0], 1, contents.size(), fp);
-    std::fclose(fp);
-    return(contents);
-  }
+    {
+      std::string contents;
+      std::fseek(fp, 0, SEEK_END);
+      contents.resize(std::ftell(fp));
+      std::rewind(fp);
+      std::fread(&contents[0], 1, contents.size(), fp);
+      std::fclose(fp);
+      return(contents);
+    }
   throw(errno);
 }
 
@@ -185,8 +88,8 @@ GLFWwindow* init_window() {
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GL_TRUE);
+  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+    glfwSetWindowShouldClose(window, GL_TRUE);
 }
 
 static void * AppInit() {
@@ -194,6 +97,8 @@ static void * AppInit() {
   void * state = mmap(0, 256L * 1024L * 1024L * 1024L, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
 
   s = (state_t*)state;
+  s->gstr = sangha_vsrc(gstr_pipeline_expr);
+  std::cout << "hello" << std::endl;
   printf("Init\n");
 
   return state;
@@ -367,6 +272,9 @@ static int AppStep(void * state) {
   s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
 
   if (s->capture) {
+    gstr_step(s->gstr.gloop);
+    hydrate_appsrc(s->gstr.vsrc, s->capture);
+
     /* save_png("./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RGBA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
     glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
 
@@ -392,6 +300,8 @@ static int AppStep(void * state) {
 
 static void AppUnload(void * state) {
   glfwTerminate();
+  sangha_stop_pipeline(s->gstr);
+  sangha_close_pipeline(s->gstr);
   s = (state_t*)state;
 
   printf("Unload\n");

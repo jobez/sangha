@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 #include "api.h"
+#include <iostream>
 
 struct app_t {
   struct api_t api;
@@ -12,14 +13,16 @@ struct app_t {
 };
 
 static void AppLoad(const char* shared_object_path, struct app_t * app) {
+
   struct stat attr = {0};
   if ((stat(shared_object_path, &attr) == 0) && (app->id != attr.st_ino)) {
     if (app->handle != NULL) {
       app->api.Unload(app->state);
       dlclose(app->handle);
     }
-    void * handle = dlopen(shared_object_path, RTLD_NOW);
+    void * handle = dlopen(shared_object_path, RTLD_NOW | RTLD_GLOBAL);
     if (handle != NULL) {
+      std::cout << "hey" << std::endl;
       app->handle = handle;
       app->id = attr.st_ino;
       struct api_t * api = (api_t*)dlsym(app->handle, "APP_API");
@@ -34,6 +37,8 @@ static void AppLoad(const char* shared_object_path, struct app_t * app) {
         app->id = 0;
       }
     } else {
+      fprintf(stderr, "dlopen failed: %s\n", dlerror());
+
       app->handle = NULL;
       app->id = 0;
     }
