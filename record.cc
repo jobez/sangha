@@ -1,7 +1,5 @@
-#include "record.h"
 #include <stdlib.h>
 #include <glib.h>
-#include <GL/glew.h>
 #include <gst/gst.h>
 #include <gst/gstbuffer.h>
 #include <gst/app/gstappsrc.h>
@@ -9,16 +7,7 @@
 #include <gst/gl/gl.h>
 #include <gst/app/gstappsink.h>
 #include <thread>
-
-
-struct Vstr_t
-{
-  GstElement *pipeline;
-  GstElement *fsink;
-  GstAppSrc *vsrc;
-  GMainLoop *gloop;
-  GThread* gthread;
-};
+#include "record.h"
 
 gboolean jhnn_bus_callback(GstBus *bus, GstMessage *message, struct Vstr_t *v)
 {

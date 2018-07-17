@@ -7,7 +7,7 @@
 #include <string>
 #include <stdio.h>
 #include <vector>
-#include "record.cc"
+#include "record.h"
 /* #include "save_png.h" */
 #include <stdlib.h>
 #include <glib.h>
@@ -15,8 +15,7 @@
 #include <gst/gst.h>
 #include <gst/gstbuffer.h>
 #include <gst/app/gstappsink.h>
-#include "api.h"cord
-
+#include "api.h"
 
 /* ----------------------------------------------------------------------- */
 
