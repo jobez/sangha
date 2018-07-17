@@ -50,6 +50,9 @@ in stdenv.mkDerivation rec {
     libGLU_combined
     pkgconfig
     glfw
+    llvm_5
+    jack2Full
+    faust2
   ];
   shellHook = '' '';
 }

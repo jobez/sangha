@@ -1,4 +1,3 @@
-#include <gst/app/gstappsrc.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <sys/mman.h>
@@ -15,11 +14,12 @@
 #include <gst/gst.h>
 #include <gst/gstbuffer.h>
 #include <gst/app/gstappsink.h>
+#include "settings.h"
 #include "api.h"
-
+#include <thread>
 /* ----------------------------------------------------------------------- */
 
-#include <thread>
+
 
 struct shader_t {
   GLenum type;
@@ -40,6 +40,7 @@ struct state_t {
   GLuint vbo;
   struct shader_manager shader_m;
   GLubyte* capture;
+  bool should_record = false;
   Vstr_t gstr;
 };
 
@@ -93,10 +94,15 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 
 static void * AppInit() {
 
-  void * state = mmap(0, 256L * 1024L * 1024L * 1024L, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
+  void * state = mmap(0, 256L * 1024L * 1024L * 1024L,
+                      PROT_READ |
+                      PROT_WRITE,
+                      MAP_ANONYMOUS |
+                      MAP_PRIVATE |
+                      MAP_NORESERVE, -1, 0);
 
   s = (state_t*)state;
-  s->gstr = sangha_vsrc(gstr_pipeline_expr);
+  // s->gstr = sangha_vsrc(gstr_pipeline_expr);
   std::cout << "hello" << std::endl;
   printf("Init\n");
 
@@ -261,7 +267,7 @@ static int AppStep(void * state) {
   nextIndex = (index + 1) % PBO_COUNT;
 
   s = (state_t*)state;
-
+  if (s->should_record) {
   glReadBuffer(GL_FRONT);
 
   glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
@@ -280,7 +286,7 @@ static int AppStep(void * state) {
   }
 
   glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
-
+  }
   glDrawBuffer(GL_BACK);
 
 
@@ -299,8 +305,10 @@ static int AppStep(void * state) {
 
 static void AppUnload(void * state) {
   glfwTerminate();
+  if (s->should_record) {
   sangha_stop_pipeline(s->gstr);
   sangha_close_pipeline(s->gstr);
+  }
   s = (state_t*)state;
 
   printf("Unload\n");

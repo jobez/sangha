@@ -4,6 +4,8 @@
 #include <dlfcn.h>
 #include "api.h"
 #include <iostream>
+#include <thread>
+
 
 struct app_t {
   struct api_t api;
@@ -56,14 +58,45 @@ void AppUnload(struct app_t * app) {
   }
 }
 
-int main() {
-  struct app_t renderer = {0};
+
+
+void enact_engine_loop(const char* shared_object_path, struct app_t engine) {
   while(1) {
-    AppLoad("./librenderer.so", &renderer);
-    if (renderer.handle != NULL)
-      if (renderer.api.Step(renderer.state) != 0)
+    AppLoad(shared_object_path, &engine);
+
+    if (engine.handle != NULL)
+      if (engine.api.Step(engine.state) != 0)
         break;
   }
-  AppUnload(&renderer);
+  AppUnload(&engine);
+}
+
+int main() {
+  struct app_t vengine = {0};
+  struct app_t aengine = {0};
+  /* std::thread visual_engine_thread(enact_engine, "./libaengine.so", aengine); */
+  /* std::thread audio_engine_thread(enact_engine, "./libaengine.so", aengine); */
+  /* audio_engine_thread.join(); */
+  /* visual_engine_thread.join(); */
+
+  while(1) {
+    AppLoad("./libvengine.so", &vengine);
+    AppLoad("./libaengine.so", &aengine);
+    if (vengine.handle != NULL)
+      if (vengine.api.Step(vengine.state) != 0)
+        break;
+    if (aengine.handle != NULL)
+      if (aengine.api.Step(aengine.state) != 0)
+        break;
+  }
+  AppUnload(&vengine);
+  AppUnload(&aengine);
+
+  /* enact_engine("./libvengine.so", vengine); */
+
+
+  /* AppLoad("./libaengine.so", &aengine); */
+
+
   return 0;
 }
