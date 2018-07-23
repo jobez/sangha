@@ -80,14 +80,17 @@ int main() {
   /* visual_engine_thread.join(); */
 
   while(1) {
-    AppLoad("./libvengine.so", &vengine);
     AppLoad("./libaengine.so", &aengine);
-    if (vengine.handle != NULL)
-      if (vengine.api.Step(vengine.state) != 0)
-        break;
+    AppLoad("./libvengine.so", &vengine);
+
     if (aengine.handle != NULL)
       if (aengine.api.Step(aengine.state) != 0)
         break;
+
+    if (vengine.handle != NULL)
+      if (vengine.api.Step2(vengine.state, aengine.state) != 0)
+        break;
+
   }
   AppUnload(&vengine);
   AppUnload(&aengine);

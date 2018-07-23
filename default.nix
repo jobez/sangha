@@ -3,17 +3,6 @@ let
 in stdenv.mkDerivation rec {
   ffiPath = "${libffi.dev}/include";
   name = "sangha";
-  includePathGST = stdenv.lib.makeSearchPathOutput "dev" "include/gstreamer-1.0" ([
-    gst_all_1.gst-editing-services
-    gst-ffmpeg
-    gst_all_1.gst-plugins-base
-    gst_all_1.gst-plugins-good
-    gst_all_1.gst-plugins-bad
-    gst_all_1.gst-plugins-ugly
-    gst_all_1.gst-libav
-
-
-  ]);
 
   GST_PLUGIN_PATH = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" [
     gst_all_1.gst-editing-services
@@ -53,6 +42,8 @@ in stdenv.mkDerivation rec {
     llvm_5
     jack2Full
     faust2
+    fftwFloat.dev
+    aubio
   ];
   shellHook = '' '';
 }

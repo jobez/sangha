@@ -1,5 +1,48 @@
 #include "SanghaAudio.h"
 
+
+SanghaFFT::SanghaFFT(int length) :
+  m_FFTLength(length),
+  m_In(new float[length]),
+  m_Out(new fftwf_complex[length])
+{
+
+  m_Plan = fftwf_plan_dft_r2c_1d(m_FFTLength, m_In, m_Out, FFTW_ESTIMATE);
+
+}
+
+SanghaFFT::~SanghaFFT()
+{
+  delete[] m_In;
+  fftwf_destroy_plan(m_Plan);
+}
+
+void SanghaFFT::syncSource(float *source)
+{
+  unsigned int i;
+
+  for (i=0; i<m_FFTLength; i++)
+  {
+    m_In[i] = source[i];
+  }
+}
+
+void SanghaFFT::syncFFTExec(float *out)
+{
+
+  fftwf_execute(m_Plan);
+  for (unsigned int i=0; i<m_FFTLength; i++)
+    {
+    out[i] = m_Out[i][0];
+  }
+}
+
+SanghaAudio::SanghaAudio(int length) {
+
+  fft = new SanghaFFT(length);
+
+}
+
 void SanghaAudio::connectPorts()
 {
 	auto incudine_ports = jack_get_ports(fClient, "incudine", 0, JackPortIsInput);
@@ -28,4 +71,28 @@ void SanghaAudio::updateDsp(dsp* new_dsp)
 	new_dsp->init(jack_get_sample_rate(fClient));
 	fDSP = new_dsp;
 	delete oldDSP;
+}
+
+
+int	SanghaAudio::process(jack_nframes_t nframes)
+{
+  AVOIDDENORMALS;
+  // Retrieve JACK inputs/output audio buffers
+  float** fInChannel = (float**)alloca(fInputPorts.size() * sizeof(float*));
+
+  for (size_t i = 0; i < fInputPorts.size(); i++) {
+    fInChannel[i] = (float*)jack_port_get_buffer(fInputPorts[i], nframes);
+  }
+
+  float** fOutChannel = (float**)alloca(fOutputPorts.size() * sizeof(float*));
+
+  for (size_t i = 0; i < fOutputPorts.size(); i++) {
+    fOutChannel[i] = (float*)jack_port_get_buffer(fOutputPorts[i], nframes);
+  }
+
+  fDSP->compute(nframes, reinterpret_cast<FAUSTFLOAT**>(fInChannel), reinterpret_cast<FAUSTFLOAT**>(fOutChannel));
+
+  fft->syncSource(fOutChannel[0]);
+
+  return 0;
 }

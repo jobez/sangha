@@ -24,7 +24,7 @@ namespace SanghaFaust
 
   SanghaAudio* init_jack(char *caudio_name, dsp* dsp)
   {
-    SanghaAudio* audio = new SanghaAudio;
+    SanghaAudio* audio = new SanghaAudio(1024);
     audio->init(caudio_name, dsp);
     return audio;
   }

@@ -16,35 +16,15 @@
 #include <gst/app/gstappsink.h>
 #include "settings.h"
 #include "api.h"
+#include "libvengine.h"
+#include "libaengine.h"
 #include <thread>
 /* ----------------------------------------------------------------------- */
 
 
 
-struct shader_t {
-  GLenum type;
-  std::string filename;
-  GLuint gl_id;
-  ino_t file_id;
-  time_t last_mod;
-};
 
-struct shader_manager {
-  std::vector<shader_t> shaders;
-  GLuint shader_programme;
-};
-
-struct state_t {
-  GLFWwindow* window;
-  GLuint vao;
-  GLuint vbo;
-  struct shader_manager shader_m;
-  GLubyte* capture;
-  bool should_record = false;
-  Vstr_t gstr;
-};
-
-struct state_t * s = NULL;
+struct v_state_t * s = NULL;
 
 float points[] = {
   0.0f,  0.5f,  0.0f,
@@ -101,7 +81,8 @@ static void * AppInit() {
                       MAP_PRIVATE |
                       MAP_NORESERVE, -1, 0);
 
-  s = (state_t*)state;
+  s = (v_state_t*)state;
+  s->fftResult = new float[1024];
   // s->gstr = sangha_vsrc(gstr_pipeline_expr);
   std::cout << "hello" << std::endl;
   printf("Init\n");
@@ -165,7 +146,7 @@ void shaderBoilerPlate(struct shader_manager& shader_m) {
 }
 
 static void AppLoad(void * state) {
-  s = (state_t*)state;
+  s = (v_state_t*)state;
   s->window = init_window();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
@@ -178,12 +159,21 @@ static void AppLoad(void * state) {
 
   // start GLEW extension handler
   glewExperimental = GL_TRUE;
-  glewInit();
 
+
+
+  const GLenum err = glewInit();
+
+  if (GLEW_OK != err)
+    {
+      std::cout << "GLEW Error: " << glewGetErrorString(err) << std::endl;
+    }
   const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
   const GLubyte* version = glGetString(GL_VERSION); // version as a string
   printf("Renderer: %s\n", renderer);
   printf("OpenGL version supported %s\n", version);
+
+
 
   // tell GL to only draw onto a pixel if the shape is closer to the viewer
   glEnable(GL_DEPTH_TEST); // enable depth-testing
@@ -203,6 +193,9 @@ static void AppLoad(void * state) {
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
   s->vao = vao;
+  GLuint texture;
+  glGenTextures(1, &texture);
+  s->fftTexId = texture;
 
   // shader marker
   struct shader_t vert;
@@ -232,6 +225,7 @@ static void AppLoad(void * state) {
 
 int file_is_modified(struct stat& file_stat, const char *path, time_t oldMTime) {
   int err = stat(path, &file_stat);
+
   if (err != 0) {
     perror(" [file_is_modified] stat");
     exit(errno);
@@ -257,7 +251,7 @@ void pollShaderFiles(struct shader_manager& shader_m) {
 }
 
 static int AppStep(void * state) {
-
+  s = (v_state_t*)state;
   pollShaderFiles(s->shader_m);
   static int shift = 0;
   static int index = 0;
@@ -266,7 +260,7 @@ static int AppStep(void * state) {
   index = (index + 1) % PBO_COUNT;
   nextIndex = (index + 1) % PBO_COUNT;
 
-  s = (state_t*)state;
+
   if (s->should_record) {
   glReadBuffer(GL_FRONT);
 
@@ -303,19 +297,88 @@ static int AppStep(void * state) {
   return glfwWindowShouldClose(s->window);
 }
 
+
+
+
+static int AppStep2(void * state, void * state2) {
+  s = (v_state_t*)state;
+  pollShaderFiles(s->shader_m);
+  static int shift = 0;
+  static int index = 0;
+  int nextIndex = 0;
+  a_state_t* audio_state;
+
+
+  index = (index + 1) % PBO_COUNT;
+  nextIndex = (index + 1) % PBO_COUNT;
+
+
+  audio_state = (a_state_t*)state2;
+  audio_state->audio_engine->fft->syncFFTExec(s->fftResult);
+//   // Create one OpenGL texture
+
+// "Bind" the newly created texture : all future texture functions will modify this texture
+  glBindTexture(GL_TEXTURE_2D, s->fftTexId);
+
+// Give the image to OpenGL
+  glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, 512, 512, 0, GL_BGR, GL_UNSIGNED_BYTE, s->fftResult);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+//   glUniform1i(glGetUniformLocation(s->shader_m.shader_programme, "fft"), 0);
+
+  if (s->should_record) {
+  glReadBuffer(GL_FRONT);
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
+  glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, 0);
+
+
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[nextIndex]);
+  s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
+
+  if (s->capture) {
+    gstr_step(s->gstr.gloop);
+    hydrate_appsrc(s->gstr.vsrc, s->capture);
+
+    /* save_png(/"./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RG0BA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
+    glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
+
+  }
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+  }
+  glDrawBuffer(GL_BACK);
+
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glUseProgram(s->shader_m.shader_programme);
+  glBindVertexArray(s->vao);
+  // draw points 0-3 from the currently bound VAO with current in-use shader
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  // update other events like input handling
+  glfwPollEvents();
+  // put the stuff we've been drawing onto the display
+  glfwSwapBuffers(s->window);
+
+  return glfwWindowShouldClose(s->window);
+}
+
 static void AppUnload(void * state) {
   glfwTerminate();
   if (s->should_record) {
   sangha_stop_pipeline(s->gstr);
   sangha_close_pipeline(s->gstr);
   }
-  s = (state_t*)state;
+  s = (v_state_t*)state;
 
   printf("Unload\n");
 }
 
 static void AppDeinit(void * state) {
-  s = (state_t*)state;
+  s = (v_state_t*)state;
 
   printf("Finalize\n");
   munmap(state, 256L * 1024L * 1024L * 1024L);
@@ -325,6 +388,7 @@ struct api_t APP_API = {
   .Init   = AppInit,
   .Load   = AppLoad,
   .Step   = AppStep,
+  .Step2 =  AppStep2,
   .Unload = AppUnload,
   .Deinit = AppDeinit
 };
