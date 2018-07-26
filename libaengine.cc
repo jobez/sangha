@@ -24,8 +24,14 @@ static void * AppInit() {
                       MAP_NORESERVE, -1, 0);
 
   s = (a_state_t*)state;
+  s->dsp_manager = {.dsp_files = std::vector<SanghaFaust::dsp_t>()};
 
-  s->audio_engine = SanghaFaust::init_jack("example", SanghaFaust::str_to_dsp("example", (char*)get_file_contents("./osc.dsp").c_str()));
+  SanghaFaust::dsp_t fooDsp("./osc.dsp", "example");
+
+  s->dsp_manager.dsp_files.push_back(fooDsp);
+
+  s->audio_engine = SanghaFaust::init_jack("example",
+                                           SanghaFaust::str_to_dsp("example", get_file_contents("./osc.dsp")));
   s->audio_engine->start();
   std::cout << "audio engine" << std::endl;
   printf("Init\n");
@@ -43,6 +49,7 @@ static void AppLoad(void * state) {
 
 static int AppStep(void * state) {
   s = (a_state_t*)state;
+  SanghaFaust::poll_dsp_files(s->dsp_manager, s->audio_engine);
   return 0;
 }
 

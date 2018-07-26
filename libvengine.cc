@@ -206,13 +206,10 @@ static void AppLoad(void * state) {
 
 
   // shader marker
-  struct shader_t vert;
-  vert.filename = "./thing.vert";
-  vert.type = GL_VERTEX_SHADER;
+  shader_t vert("./thing.vert", GL_VERTEX_SHADER);
+  shader_t frag("./thing.frag", GL_FRAGMENT_SHADER);
 
-  struct shader_t frag;
-  frag.filename = "./thing.frag";
-  frag.type = GL_FRAGMENT_SHADER;
+
   s->shader_m.shaders.clear();
   s->shader_m.shaders.push_back(frag);
   s->shader_m.shaders.push_back(vert);

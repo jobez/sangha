@@ -2,11 +2,16 @@
 #include <fftw3.h>
 
 struct shader_t {
-  GLenum type;
   std::string filename;
+  GLenum type;
   GLuint gl_id;
   ino_t file_id;
   time_t last_mod = 0;
+  shader_t(std::string filename, GLenum type) :
+  filename(filename),
+    type(type)
+  {
+  }
 };
 
 struct shader_manager {

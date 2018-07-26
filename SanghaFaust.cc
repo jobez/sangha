@@ -11,16 +11,29 @@ namespace SanghaFaust
 {
 	APIUI fAPIUI;
 
-  dsp* str_to_dsp(char *cdsp_name, char *cdsp_str)
+  dsp* str_to_dsp(std::string dsp_name, std::string dsp_str)
   {
-    std::string dsp_str(cdsp_str);
-    std::string dsp_name(cdsp_name);
     std::string error_msg;
     llvm_dsp_factory* dsp_fact = createDSPFactoryFromString(dsp_name, dsp_str, 0, 0, "", error_msg);
     std::cerr << error_msg << std::endl;
     std::cout << dsp_str << std::endl;
     return dsp_fact->createDSPInstance();
   }
+
+  // TODO: this doesn't really generalize to the more than 1 case yet
+  void poll_dsp_files(dsp_manager_t& dsp_manager, SanghaAudio* audio) {
+    for(dsp_t& dsp_file : dsp_manager.dsp_files) {
+      struct stat attr;
+      if (file_is_modified(attr,
+                           dsp_file.filename.c_str(),
+                           dsp_file.last_mod)) {
+        dsp_file.last_mod = attr.st_mtime;
+        dsp* updated_dsp = str_to_dsp(dsp_file.name, get_file_contents(dsp_file.filename.c_str()));
+        audio->updateDsp(updated_dsp);
+        audio->start();
+      }
+    }
+  };
 
   SanghaAudio* init_jack(char *caudio_name, dsp* dsp)
   {

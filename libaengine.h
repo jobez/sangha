@@ -4,4 +4,5 @@
 
 struct a_state_t {
   SanghaAudio* audio_engine;
+  SanghaFaust::dsp_manager_t dsp_manager;
 };
