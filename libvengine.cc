@@ -3,8 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <iostream>
-#include <fstream>
+
 #include <string>
 #include <stdio.h>
 #include <vector>
@@ -12,7 +11,7 @@
 /* #include "save_png.h" */
 #include <stdlib.h>
 #include <glib.h>
-
+#include "utils.h"
 #include <gst/gst.h>
 #include <gst/gstbuffer.h>
 #include <gst/app/gstappsink.h>
@@ -22,22 +21,6 @@
 #include "libaengine.h"
 #include <thread>
 /* ----------------------------------------------------------------------- */
-
-
-
-void debug_output_of_array(std::string path, float* ffw_buffer) {
-
-
-  std::ofstream output_file (path);
-  if (output_file.is_open())
-  {
-
-    for(int count = 0; count < 512; count++){
-      output_file << ffw_buffer[count] << std::endl;
-    }
-    output_file.close();
-  }
-}
 
 
 struct v_state_t * s = NULL;
@@ -57,22 +40,6 @@ const GLenum PIXEL_FORMAT = GL_BGRA;
 const int PBO_COUNT = 2;
 
 GLuint pboIds[PBO_COUNT];
-
-std::string get_file_contents(const char *filename)
-{
-  std::FILE *fp = std::fopen(filename, "rb");
-  if (fp)
-    {
-      std::string contents;
-      std::fseek(fp, 0, SEEK_END);
-      contents.resize(std::ftell(fp));
-      std::rewind(fp);
-      std::fread(&contents[0], 1, contents.size(), fp);
-      std::fclose(fp);
-      return(contents);
-    }
-  throw(errno);
-}
 
 GLFWwindow* init_window() {
 
@@ -264,16 +231,6 @@ static void AppLoad(void * state) {
 
 }
 
-int file_is_modified(struct stat& file_stat, const char *path, time_t oldMTime) {
-  int err = stat(path, &file_stat);
-
-  if (err != 0) {
-    perror(" [file_is_modified] stat");
-    exit(errno);
-  }
-  return file_stat.st_mtime > oldMTime;
-}
-
 void pollShaderFiles(struct shader_manager& shader_m) {
   /* printf("%i", shader_m.shaders.size()); */
   for (int i = 0; i < shader_m.shaders.size(); i++) {
@@ -373,7 +330,7 @@ static int AppStep2(void * state, void * state2) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-//   glUniform1i(glGetUniformLocation(s->shader_m.shader_programme, "fft"), 0);
+
 
   GLint timeLoc = glGetUniformLocation(s->shader_m.shader_programme, "time");
 

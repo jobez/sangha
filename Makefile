@@ -6,10 +6,10 @@ all: main libvengine.so libaengine.so
 main: main.c
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
 
-libvengine.so: libvengine.cc avcapture.cc
+libvengine.so: libvengine.cc avcapture.cc utils.cc
 	$(CXX) $(CFLAGS) -shared $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-libaengine.so: libaengine.cc SanghaFaust.cc SanghaAudio.cpp
+libaengine.so: libaengine.cc SanghaFaust.cc SanghaAudio.cpp utils.cc
 	$(CXX) $(CFLAGS) -shared $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 test: main libvengine.so libaengine.so

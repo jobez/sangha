@@ -3,6 +3,7 @@
 #include <fstream>
 #include <faust/audio/jack-dsp.h>
 #include <aubio/aubio.h>
+#include "utils.h"
 #include <tgmath.h>
 #include <complex>
 #include <fftw3.h>
