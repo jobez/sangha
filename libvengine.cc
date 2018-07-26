@@ -25,10 +25,27 @@
 
 struct v_state_t * s = NULL;
 
-float points[] = {
-  0.0f,  0.5f,  0.0f,
-  0.5f, -0.5f,  0.0f,
-  -0.5f, -0.5f,  0.0f
+// float points[] = {
+//   0.0f,  0.5f,  0.0f,
+//   0.5f, -0.5f,  0.0f,
+//   -0.5f, -0.5f,  0.0f
+// };
+
+// GLfloat points[] = {
+//     //  X     Y     Z
+//        1.0f, 1.0f, 0.0f,
+//       -1.0f, 1.0f, 0.0f,
+//        1.0f,-1.0f, 0.0f,
+//        1.0f,-1.0f, 0.0f,
+//       -1.0f, 1.0f, 0.0f,
+//       -1.0f,-1.0f, 0.0f,
+// }; // 6 vertices
+
+GLfloat points[] = {
+  -1.0f, -1.0f,
+  -1.0f, 1.0f,
+  1.0f, -1.0f,
+  1.0f, 1.0f
 };
 
 // constants
@@ -183,7 +200,7 @@ static void AppLoad(void * state) {
   GLuint vbo = 0;
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(float), points, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), points, GL_STATIC_DRAW);
   s->vbo = vbo;
 
   GLuint vao = 0;
@@ -191,7 +208,7 @@ static void AppLoad(void * state) {
   glBindVertexArray(vao);
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
   s->vao = vao;
 
   GLuint fftTexture;
@@ -373,7 +390,10 @@ static int AppStep2(void * state, void * state2) {
   glUseProgram(s->shader_m.shader_programme);
   glBindVertexArray(s->vao);
   // draw points 0-3 from the currently bound VAO with current in-use shader
-  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+
   // update other events like input handling
   glfwPollEvents();
   // put the stuff we've been drawing onto the display
