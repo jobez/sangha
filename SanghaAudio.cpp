@@ -1,43 +1,148 @@
 #include "SanghaAudio.h"
 
+// https://github.com/dgranosa/liveW/blob/master/include/pulsefft.h
+inline void weights_init(float *dest, int samples, enum w_type w)
+{
+    switch(w) {
+        case WINDOW_TRIANGLE:
+            for (int i = 0; i < samples; i++)
+                dest[i] = 1 - 2*fabsf((i - ((samples - 1)/2.0f))/(samples - 1));
+            break;
+        case WINDOW_HANNING:
+            for (int i = 0; i < samples; i++)
+                dest[i] = 0.5f*(1 - cos((2*M_PI*i)/(samples - 1)));
+            break;
+        case WINDOW_HAMMING:
+            for (int i = 0; i < samples; i++)
+                dest[i] = 0.54 - 0.46*cos((2*M_PI*i)/(samples - 1));
+            break;
+        case WINDOW_BLACKMAN:
+            for (int i = 0; i < samples; i++) {
+                const float c1 = cos((2*M_PI*i)/(samples - 1));
+                const float c2 = cos((4*M_PI*i)/(samples - 1));
+                dest[i] = 0.42659 - 0.49656*c1 + 0.076849*c2;
+            }
+            break;
+        case WINDOW_BLACKMAN_HARRIS:
+            for (int i = 0; i < samples; i++) {
+                const float c1 = cos((2*M_PI*i)/(samples - 1));
+                const float c2 = cos((4*M_PI*i)/(samples - 1));
+                const float c3 = cos((6*M_PI*i)/(samples - 1));
+                dest[i] = 0.35875 - 0.48829*c1 + 0.14128*c2 - 0.001168*c3;
+            }
+            break;
+        case WINDOW_FLAT:
+            for (int i = 0; i < samples; i++)
+                dest[i] = 1.0f;
+            break;
+        case WINDOW_WELCH:
+            for (int i = 0; i < samples; i++)
+                dest[i] = 1 - pow((i - ((samples - 1)/2.0f))/((samples - 1)/2.0f), 2.0f);
+            break;
+        default:
+            for (int i = 0; i < samples; i++)
+                dest[i] = 0.0f;
+            break;
+    }
+    float sum = 0.0f;
+    for (int i = 0; i < samples; i++)
+        sum += dest[i];
+    for (int i = 0; i < samples; i++)
+        dest[i] /= sum;
+}
+
+
+inline void apply_win(double *dest, float *src,
+                      float *weights, int samples)
+{
+  for (int i = 0; i < samples; i++) {
+    dest[i] = src[i]*weights[i];
+  }
+}
+
+
+inline float frame_average(float mag, float *buf,
+                           int avgs, int no_mod)
+{
+    if (!avgs)
+        return mag;
+    float val = mag;
+    for (int i = 0; i < avgs; i++)
+        val += buf[i];
+    val /= avgs + 1;
+    if (no_mod)
+        return val;
+    for (int i = avgs - 1; i > 0; i--)
+        buf[i] = buf[i-1];
+    buf[0] = mag;
+    return val;
+}
 
 SanghaFFT::SanghaFFT(int length) :
   m_FFTLength(length),
-  m_In(new float[length]),
-  m_Out(new fftwf_complex[length])
+  m_In(new double[length]),
+  m_Weights(new float[length]),
+  m_Out(new std::complex<double>[length])
 {
 
-  m_Plan = fftwf_plan_dft_r2c_1d(m_FFTLength, m_In, m_Out, FFTW_ESTIMATE);
+
+  m_Plan = fftw_plan_dft_r2c_1d(m_FFTLength, m_In,
+                                reinterpret_cast<fftw_complex*>(m_Out),
+                                FFTW_PATIENT | FFTW_DESTROY_INPUT);
+
+  fft_memb = (m_FFTLength / 2)+1;
+
+  frame_avg_mag = (float**)malloc(fft_memb*sizeof(float *));
+  for (int i = 0; i < fft_memb; i++)
+    frame_avg_mag[i] = (float*)calloc(frame_avg, sizeof(float));
+
+  weights_init(m_Weights, fft_memb, window);
 
 }
 
 SanghaFFT::~SanghaFFT()
 {
   delete[] m_In;
-  fftwf_destroy_plan(m_Plan);
+  fftw_destroy_plan(m_Plan);
 }
 
-void SanghaFFT::syncSource(float *source)
+void SanghaFFT::syncSource(float *source, jack_nframes_t nframes)
 {
-  unsigned int i;
 
-  for (i=0; i<m_FFTLength; i++)
-  {
-    m_In[i] = source[i];
+
+  apply_win(m_In, source, m_Weights, fft_memb);
+
+
+}
+
+
+void SanghaFFT::syncFFTExec()
+{
+  fftw_execute(m_Plan);
+  double mag_max = 0.0f;
+  int start_low = 0;
+
+  for (int i = start_low; i < fft_memb; i++) {
+    auto num = m_Out[i];
+    double mag = std::real(num)*std::real(num) + std::imag(num)*std::imag(num);
+    mag = log10(mag)/10;
+    mag = frame_average(mag, frame_avg_mag[i], frame_avg, 1);
+    mag_max = mag > mag_max ? mag : mag_max;
+
+  }
+
+  for (int i = start_low; i < fft_memb; i++) {
+    auto num = m_Out[i];
+    double mag = std::real(num)*std::real(num) + std::imag(num)*std::imag(num);
+    mag = log10(mag)/10;
+    mag = frame_average(mag, frame_avg_mag[i], frame_avg, 0);
+    fftBuffer[i - start_low] = ((float)mag + (float)mag_max + 0.5f) / 2.0f + 0.5f;
   }
 }
 
-void SanghaFFT::syncFFTExec(float *out)
+SanghaAudio::SanghaAudio(int length)
+
 {
-
-  fftwf_execute(m_Plan);
-  for (unsigned int i=0; i<m_FFTLength; i++)
-    {
-    out[i] = m_Out[i][0];
-  }
-}
-
-SanghaAudio::SanghaAudio(int length) {
 
   fft = new SanghaFFT(length);
 
@@ -90,9 +195,11 @@ int	SanghaAudio::process(jack_nframes_t nframes)
     fOutChannel[i] = (float*)jack_port_get_buffer(fOutputPorts[i], nframes);
   }
 
-  fDSP->compute(nframes, reinterpret_cast<FAUSTFLOAT**>(fInChannel), reinterpret_cast<FAUSTFLOAT**>(fOutChannel));
+  fDSP->compute(nframes,
+                reinterpret_cast<FAUSTFLOAT**>(fInChannel),
+                reinterpret_cast<FAUSTFLOAT**>(fOutChannel));
 
-  fft->syncSource(fOutChannel[0]);
+  fft->syncSource(fOutChannel[1], nframes);
 
   return 0;
 }

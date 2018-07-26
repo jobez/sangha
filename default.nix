@@ -42,7 +42,7 @@ in stdenv.mkDerivation rec {
     llvm_5
     jack2Full
     faust2
-    fftwFloat.dev
+    fftw
     aubio
   ];
   shellHook = '' '';

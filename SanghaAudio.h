@@ -1,34 +1,43 @@
 #pragma once
+#include <iostream>
+#include <fstream>
 #include <faust/audio/jack-dsp.h>
 #include <aubio/aubio.h>
+#include <tgmath.h>
+#include <complex>
 #include <fftw3.h>
 
-#define NUM_POINTS 64
 
-/* typedef float sample; */
-/* const size_t buffer_max = 16384; */
-/* size_t buffer_size, buffer_jack_size, buffer_wnd_size, wnd_width; */
-/* sample *buffer_1, *buffer_2, *buffer_input; */
-/* bool buffer_locked, buffer_size_changed; */
-
-/* int nelements_in = 1024; */
-/* int nelements_out = (nelements_in / 2) + 1; */
-/* in = (double*) fftw_malloc(sizeof(double) * nelements_in); */
-/* out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nelements_out); */
-/* plan = fftw_plan_dft_r2c_1d(n, in, out, FFTW_MEASURE); */
+// https://github.com/dgranosa/liveW/blob/master/include/pulsefft.h
+enum w_type {
+    WINDOW_TRIANGLE,
+    WINDOW_HANNING,
+    WINDOW_HAMMING,
+    WINDOW_BLACKMAN,
+    WINDOW_BLACKMAN_HARRIS,
+    WINDOW_WELCH,
+    WINDOW_FLAT,
+};
 
 class SanghaFFT
 {
  public:
   SanghaFFT(int length);
   ~SanghaFFT();
-	void syncFFTExec(float *out);
-  void syncSource(float *source);
+	void syncFFTExec();
+  void syncSource(float *source, jack_nframes_t nframes);
+  float fftBuffer[512];
  private:
-  fftwf_plan m_Plan;
+  w_type window = WINDOW_HAMMING;
+  fftw_plan m_Plan;
+  float *m_Weights;
+  float** frame_avg_mag;
+  unsigned int fft_memb;
+  unsigned int frame_avg = 2;
 	unsigned int m_FFTLength;
-	float *m_In;
-  fftwf_complex *m_Out;
+	double *m_In;
+
+  std::complex<double> *m_Out;
 };
 
 

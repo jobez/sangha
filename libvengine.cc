@@ -1,8 +1,10 @@
+#include <ctime>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <stdio.h>
 #include <vector>
@@ -22,6 +24,20 @@
 /* ----------------------------------------------------------------------- */
 
 
+
+void debug_output_of_array(std::string path, float* ffw_buffer) {
+
+
+  std::ofstream output_file (path);
+  if (output_file.is_open())
+  {
+
+    for(int count = 0; count < 512; count++){
+      output_file << ffw_buffer[count] << std::endl;
+    }
+    output_file.close();
+  }
+}
 
 
 struct v_state_t * s = NULL;
@@ -82,7 +98,7 @@ static void * AppInit() {
                       MAP_NORESERVE, -1, 0);
 
   s = (v_state_t*)state;
-  s->fftResult = new float[1024];
+
   // s->gstr = sangha_vsrc(gstr_pipeline_expr);
   std::cout << "hello" << std::endl;
   printf("Init\n");
@@ -90,6 +106,14 @@ static void * AppInit() {
   return state;
 }
 
+
+void checkErrors(const char *desc) {
+	GLenum e = glGetError();
+	if (e != GL_NO_ERROR) {
+		printf("OpenGL error in \"%s\": %s (%d)\n", desc, gluErrorString(e), e);
+		exit(1);
+	}
+}
 
 void shaderBoilerPlate(struct shader_manager& shader_m) {
   if (shader_m.shader_programme) {
@@ -135,14 +159,23 @@ void shaderBoilerPlate(struct shader_manager& shader_m) {
       }
 
     // attatch and link
+    // glUniform1i(glGetUniformLocation(r->progID, "samples"), 0);
+
+    // glUniform1i(glGetUniformLocation(r->progID, "albumArt"), 2);
 
     glAttachShader(shader_programme, s);
 
 
 
   }
+
   shader_m.shader_programme = shader_programme;
   glLinkProgram(shader_programme);
+
+  GLint fftLoc = glGetUniformLocation(shader_programme, "fft");
+    if (fftLoc != -1)
+      glUniform1i(fftLoc, 0);
+    // checkErrors("Linking Textures");
 }
 
 static void AppLoad(void * state) {
@@ -193,9 +226,17 @@ static void AppLoad(void * state) {
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
   s->vao = vao;
-  GLuint texture;
-  glGenTextures(1, &texture);
-  s->fftTexId = texture;
+
+  GLuint fftTexture;
+
+  glBindTexture(GL_TEXTURE_1D, fftTexture);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  s->fftTexId = fftTexture;
+
+
 
   // shader marker
   struct shader_t vert;
@@ -314,19 +355,40 @@ static int AppStep2(void * state, void * state2) {
 
 
   audio_state = (a_state_t*)state2;
-  audio_state->audio_engine->fft->syncFFTExec(s->fftResult);
+
+  audio_state->audio_engine->fft->syncFFTExec();
+
 //   // Create one OpenGL texture
 
 // "Bind" the newly created texture : all future texture functions will modify this texture
-  glBindTexture(GL_TEXTURE_2D, s->fftTexId);
 
-// Give the image to OpenGL
-  glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, 512, 512, 0, GL_BGR, GL_UNSIGNED_BYTE, s->fftResult);
+  // todo: softcode buffersize (512 arg)
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_1D, s->fftTexId);
+  glTexImage1D(GL_TEXTURE_1D, 0, GL_R16, 512,
+               0, GL_RED, GL_FLOAT,
+               audio_state->audio_engine->fft->fftBuffer);
+
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 //   glUniform1i(glGetUniformLocation(s->shader_m.shader_programme, "fft"), 0);
+
+  GLint timeLoc = glGetUniformLocation(s->shader_m.shader_programme, "time");
+
+  if (timeLoc != -1){
+    time_t t = std::time(0);
+    long int now = static_cast<long int> (t);
+    std::cout << now << std::endl;
+    glUniform1f(timeLoc, now);}
+
+  GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_programme, "resolution");
+    if (resolutionLoc != -1) glUniform2f(resolutionLoc, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
+
+
+  // GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_programme, "resolution");
+  // if (resolutionLoc != -1) glUniform2f(resolutionLoc, (float)r->win->width, (float)r->win->height);
 
   if (s->should_record) {
   glReadBuffer(GL_FRONT);

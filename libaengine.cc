@@ -14,6 +14,21 @@
 
 struct a_state_t * s = NULL;
 
+std::string get_file_contents(const char *filename)
+{
+  std::FILE *fp = std::fopen(filename, "rb");
+  if (fp)
+    {
+      std::string contents;
+      std::fseek(fp, 0, SEEK_END);
+      contents.resize(std::ftell(fp));
+      std::rewind(fp);
+      std::fread(&contents[0], 1, contents.size(), fp);
+      std::fclose(fp);
+      return(contents);
+    }
+  throw(errno);
+}
 
 
 static void * AppInit() {
@@ -27,7 +42,7 @@ static void * AppInit() {
 
   s = (a_state_t*)state;
 
-  s->audio_engine = SanghaFaust::init_jack("example", SanghaFaust::str_to_dsp("example", "process = 1;"));
+  s->audio_engine = SanghaFaust::init_jack("example", SanghaFaust::str_to_dsp("example", (char*)get_file_contents("./osc.dsp").c_str()));
   s->audio_engine->start();
   std::cout << "audio engine" << std::endl;
   printf("Init\n");
