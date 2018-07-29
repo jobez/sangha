@@ -1,4 +1,4 @@
-CFLAGS = -fpic -O0 $$(pkg-config --libs --cflags aubio fftw3 glfw3 gstreamer-plugins-base-1.0 gstreamer-plugins-bad-1.0 gstreamer-gl-1.0 gstreamer-app-1.0 gstreamer-1.0 gl glew x11 libpng) $$(llvm-config --ldflags --libs all)
+CFLAGS = -fpic -O0 $$(pkg-config --libs --cflags fftw3 glfw3 gstreamer-plugins-base-1.0 gstreamer-plugins-bad-1.0 gstreamer-gl-1.0 gstreamer-app-1.0 gstreamer-1.0 gl glew x11 libpng) $$(llvm-config --ldflags --libs all)
 LDLIBS = -lOSCFaust -lfaust -ljack
 
 all: main libvengine.so libaengine.so

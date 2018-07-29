@@ -224,7 +224,7 @@ static void AppLoad(void * state) {
 
   // shader marker
   shader_t vert("./thing.vert", GL_VERTEX_SHADER);
-  shader_t frag("./thing.frag", GL_FRAGMENT_SHADER);
+  shader_t frag("./jhnn.frag", GL_FRAGMENT_SHADER);
 
 
   s->shader_m.shaders.clear();
@@ -346,15 +346,12 @@ static int AppStep2(void * state, void * state2) {
 
 
 
-  GLint timeLoc = glGetUniformLocation(s->shader_m.shader_programme, "time");
+  GLint timeLoc = glGetUniformLocation(s->shader_m.shader_programme, "iTime");
 
   if (timeLoc != -1){
-    time_t t = std::time(0);
-    long int now = static_cast<long int> (t);
-    std::cout << now << std::endl;
-    glUniform1f(timeLoc, now);}
+    glUniform1f(timeLoc, glfwGetTime());}
 
-  GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_programme, "resolution");
+  GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_programme, "iResolution");
     if (resolutionLoc != -1) glUniform2f(resolutionLoc, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
 
 
