@@ -16,7 +16,7 @@ struct shader_t {
 
 struct shader_manager {
   std::vector<shader_t> shaders;
-  GLuint shader_programme;
+  GLuint shader_program;
 };
 
 struct v_state_t {

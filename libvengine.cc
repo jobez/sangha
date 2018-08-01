@@ -25,22 +25,6 @@
 
 struct v_state_t * s = NULL;
 
-// float points[] = {
-//   0.0f,  0.5f,  0.0f,
-//   0.5f, -0.5f,  0.0f,
-//   -0.5f, -0.5f,  0.0f
-// };
-
-// GLfloat points[] = {
-//     //  X     Y     Z
-//        1.0f, 1.0f, 0.0f,
-//       -1.0f, 1.0f, 0.0f,
-//        1.0f,-1.0f, 0.0f,
-//        1.0f,-1.0f, 0.0f,
-//       -1.0f, 1.0f, 0.0f,
-//       -1.0f,-1.0f, 0.0f,
-// }; // 6 vertices
-
 GLfloat points[] = {
   -1.0f, -1.0f,
   -1.0f, 1.0f,
@@ -57,6 +41,31 @@ const GLenum PIXEL_FORMAT = GL_BGRA;
 const int PBO_COUNT = 2;
 
 GLuint pboIds[PBO_COUNT];
+
+// https://gamedev.stackexchange.com/questions/48926/opengl-fetching-the-names-of-all-uniform-blocks-in-your-program
+std::vector<std::string> reflect_uniforms(GLuint program) {
+
+  GLint numBlocks;
+  glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &numBlocks);
+
+
+  std::vector<std::string> nameList;
+  nameList.reserve(numBlocks);
+
+  for(int blockIx = 0; blockIx < numBlocks; ++blockIx)
+    {
+      GLint nameLen;
+      glGetActiveUniformBlockiv(program, blockIx, GL_UNIFORM_BLOCK_NAME_LENGTH, &nameLen);
+
+      std::vector<GLchar> name; //Yes, not std::string. There's a reason for that.
+      name.resize(nameLen);
+      glGetActiveUniformBlockName(program, blockIx, nameLen, NULL, &name[0]);
+      nameList.push_back(std::string());
+      nameList.back().assign(name.begin(), name.end() - 1); //Remove the null terminator.
+    }
+  return nameList;
+
+}
 
 GLFWwindow* init_window() {
 
@@ -100,12 +109,12 @@ void checkErrors(const char *desc) {
 }
 
 void shaderBoilerPlate(struct shader_manager& shader_m) {
-  if (shader_m.shader_programme) {
+  if (shader_m.shader_program) {
 
-    glDeleteProgram(shader_m.shader_programme);
+    glDeleteProgram(shader_m.shader_program);
 
   }
-  GLuint shader_programme = glCreateProgram();
+  GLuint shader_program = glCreateProgram();
   for (int i = 0; i < shader_m.shaders.size(); i++) {
     struct shader_t& shader = shader_m.shaders[i];
     std::string src_contents = get_file_contents(shader.filename.c_str());
@@ -147,19 +156,19 @@ void shaderBoilerPlate(struct shader_manager& shader_m) {
 
     // glUniform1i(glGetUniformLocation(r->progID, "albumArt"), 2);
 
-    glAttachShader(shader_programme, s);
+    glAttachShader(shader_program, s);
 
 
 
   }
 
-  shader_m.shader_programme = shader_programme;
-  glLinkProgram(shader_programme);
+  shader_m.shader_program = shader_program;
+  glLinkProgram(shader_program);
 
-  GLint fftLoc = glGetUniformLocation(shader_programme, "fft");
+  GLint fftLoc = glGetUniformLocation(shader_program, "fft");
     if (fftLoc != -1)
       glUniform1i(fftLoc, 0);
-    // checkErrors("Linking Textures");
+    // checkErrors("Linking Textures");
 }
 
 static void AppLoad(void * state) {
@@ -297,7 +306,7 @@ static int AppStep(void * state) {
 
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glUseProgram(s->shader_m.shader_programme);
+  glUseProgram(s->shader_m.shader_program);
   glBindVertexArray(s->vao);
   // draw points 0-3 from the currently bound VAO with current in-use shader
   glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -345,13 +354,18 @@ static int AppStep2(void * state, void * state2) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 
+  auto uniforms = reflect_uniforms(s->shader_m.shader_program);
 
-  GLint timeLoc = glGetUniformLocation(s->shader_m.shader_programme, "iTime");
+  for(auto uniform : uniforms) {
+    std::cout << uniform << std::endl;
+  }
+
+  GLint timeLoc = glGetUniformLocation(s->shader_m.shader_program, "iTime");
 
   if (timeLoc != -1){
     glUniform1f(timeLoc, glfwGetTime());}
 
-  GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_programme, "iResolution");
+  GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_program, "iResolution");
     if (resolutionLoc != -1) glUniform2f(resolutionLoc, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
 
 
@@ -384,7 +398,7 @@ static int AppStep2(void * state, void * state2) {
 
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glUseProgram(s->shader_m.shader_programme);
+  glUseProgram(s->shader_m.shader_program);
   glBindVertexArray(s->vao);
   // draw points 0-3 from the currently bound VAO with current in-use shader
 
