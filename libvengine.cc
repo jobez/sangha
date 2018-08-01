@@ -20,6 +20,8 @@
 #include "libvengine.h"
 #include "libaengine.h"
 #include <thread>
+#include <functional>
+#include <map>
 /* ----------------------------------------------------------------------- */
 
 
@@ -32,6 +34,28 @@ GLfloat points[] = {
   1.0f, 1.0f
 };
 
+
+void fftToGL(v_state_t* vs, a_state_t* as) {
+
+  as->audio_engine->fft->syncFFTExec();
+
+//   // Create one OpenGL texture
+
+// "Bind" the newly created texture : all future texture functions will modify this texture
+
+  // todo: softcode buffersize (512 arg)
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_1D, vs->fftTexId);
+  glTexImage1D(GL_TEXTURE_1D, 0, GL_R16, 512,
+               0, GL_RED, GL_FLOAT,
+               as->audio_engine->fft->fftBuffer);
+
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+}
+
 // constants
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 800;
@@ -42,28 +66,50 @@ const int PBO_COUNT = 2;
 
 GLuint pboIds[PBO_COUNT];
 
-// https://gamedev.stackexchange.com/questions/48926/opengl-fetching-the-names-of-all-uniform-blocks-in-your-program
-std::vector<std::string> reflect_uniforms(GLuint program) {
+std::map< std::string , std::function<void(v_state_t* vstate,a_state_t* astate)> > uniformTable{
+  {"fft",fftToGL},
+  {"iTime", [](v_state_t* vs, a_state_t* as){
+      glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), glfwGetTime());
+    } },
+  {"iResolution", [](v_state_t* vs, a_state_t* as) {
+      glUniform2f(glGetUniformLocation(vs->shader_m.shader_program, "iResolution"), (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
 
-  GLint numBlocks;
-  glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &numBlocks);
+    } }
+};
 
 
-  std::vector<std::string> nameList;
-  nameList.reserve(numBlocks);
 
-  for(int blockIx = 0; blockIx < numBlocks; ++blockIx)
-    {
-      GLint nameLen;
-      glGetActiveUniformBlockiv(program, blockIx, GL_UNIFORM_BLOCK_NAME_LENGTH, &nameLen);
 
-      std::vector<GLchar> name; //Yes, not std::string. There's a reason for that.
-      name.resize(nameLen);
-      glGetActiveUniformBlockName(program, blockIx, nameLen, NULL, &name[0]);
-      nameList.push_back(std::string());
-      nameList.back().assign(name.begin(), name.end() - 1); //Remove the null terminator.
-    }
-  return nameList;
+std::vector<uniform_t> reflect_uniforms(GLuint program) {
+
+
+  std::vector<uniform_t> unis;
+  GLint numActiveUniforms = 0;
+
+  glGetProgramInterfaceiv(program, GL_UNIFORM, GL_ACTIVE_RESOURCES, &numActiveUniforms);
+
+  std::vector<GLchar> nameData(256);
+  std::vector<GLenum> properties;
+
+  properties.push_back(GL_NAME_LENGTH);
+  properties.push_back(GL_TYPE);
+
+  std::vector<GLint> values(properties.size());
+  for(int attrib = 0; attrib < numActiveUniforms; ++attrib)
+{
+  glGetProgramResourceiv(program, GL_UNIFORM, attrib, properties.size(),
+                         &properties[0], values.size(), NULL, &values[0]);
+
+  nameData.resize(values[0]); //The length of the name.
+  glGetProgramResourceName(program, GL_UNIFORM, attrib, nameData.size(), NULL, &nameData[0]);
+  std::string name((char*)&nameData[0], nameData.size() - 1);
+  uniform_t uni(name, values[1]);
+
+  unis.push_back(uni);
+ }
+
+
+  return unis;
 
 }
 
@@ -162,14 +208,31 @@ void shaderBoilerPlate(struct shader_manager& shader_m) {
 
   }
 
+
+
+
+
+
+
   shader_m.shader_program = shader_program;
   glLinkProgram(shader_program);
+  shader_m.uniforms = reflect_uniforms(shader_m.shader_program);
 
-  GLint fftLoc = glGetUniformLocation(shader_program, "fft");
-    if (fftLoc != -1)
-      glUniform1i(fftLoc, 0);
+
+
+  // GLint fftLoc = glGetUniformLocation(shader_program, "fft");
+  //   if (fftLoc != -1)
+  //     glUniform1i(fftLoc, 0);
     // checkErrors("Linking Textures");
 }
+
+
+void hydrate_uniforms(shader_manager shader_m, v_state_t* vs, a_state_t* as) {
+  for(auto uniform : shader_m.uniforms) {
+    uniformTable[uniform.name](vs, as);
+  }
+}
+
 
 static void AppLoad(void * state) {
   s = (v_state_t*)state;
@@ -333,40 +396,15 @@ static int AppStep2(void * state, void * state2) {
   index = (index + 1) % PBO_COUNT;
   nextIndex = (index + 1) % PBO_COUNT;
 
-
   audio_state = (a_state_t*)state2;
 
-  audio_state->audio_engine->fft->syncFFTExec();
-
-//   // Create one OpenGL texture
-
-// "Bind" the newly created texture : all future texture functions will modify this texture
-
-  // todo: softcode buffersize (512 arg)
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_1D, s->fftTexId);
-  glTexImage1D(GL_TEXTURE_1D, 0, GL_R16, 512,
-               0, GL_RED, GL_FLOAT,
-               audio_state->audio_engine->fft->fftBuffer);
+  hydrate_uniforms(s->shader_m, s, audio_state);
 
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 
-  auto uniforms = reflect_uniforms(s->shader_m.shader_program);
 
-  for(auto uniform : uniforms) {
-    std::cout << uniform << std::endl;
-  }
 
-  GLint timeLoc = glGetUniformLocation(s->shader_m.shader_program, "iTime");
-
-  if (timeLoc != -1){
-    glUniform1f(timeLoc, glfwGetTime());}
-
-  GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_program, "iResolution");
-    if (resolutionLoc != -1) glUniform2f(resolutionLoc, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
 
 
   // GLint resolutionLoc = glGetUniformLocation(s->shader_m.shader_programme, "resolution");

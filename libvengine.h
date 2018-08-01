@@ -14,9 +14,19 @@ struct shader_t {
   }
 };
 
+struct uniform_t {
+  std::string name;
+  GLint type;
+uniform_t(std::string name, GLint type) :
+  name(name),
+    type(type)
+  {}
+};
+
 struct shader_manager {
   std::vector<shader_t> shaders;
   GLuint shader_program;
+  std::vector<uniform_t> uniforms;
 };
 
 struct v_state_t {
