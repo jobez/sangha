@@ -18,10 +18,8 @@
 #include "settings.h"
 #include "api.h"
 #include "libvengine.h"
-#include "libaengine.h"
 #include <thread>
-#include <functional>
-#include <map>
+
 /* ----------------------------------------------------------------------- */
 
 
@@ -66,19 +64,31 @@ const int PBO_COUNT = 2;
 
 GLuint pboIds[PBO_COUNT];
 
-std::map< std::string , std::function<void(v_state_t* vstate,a_state_t* astate)> > uniformTable{
-  {"fft",fftToGL},
-  {"iTime", [](v_state_t* vs, a_state_t* as){
+// TODO: system wide mechanism for (who) engines to register the 'what' of their signals and have that pattern matched with the 'where' GPU placement logic
+uniform_table_t register_uniform_srcs(uniform_table_t uniformTable) {
+
+  uniformTable["fft"]=  fftToGL;
+  uniformTable["iTime"]=  [](v_state_t* vs, a_state_t* as){
       glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), glfwGetTime());
-    } },
-  {"iResolution", [](v_state_t* vs, a_state_t* as) {
+  };
+  uniformTable["iResolution"]= [](v_state_t* vs, a_state_t* as) {
       glUniform2f(glGetUniformLocation(vs->shader_m.shader_program, "iResolution"), (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
 
-    } }
-};
+  };
 
+  return uniformTable;
 
+}
 
+maybe_sync_fn uniform_name_to_sync_fn (uniform_table_t uniform_table, std::string uniform_name) {
+
+  if (auto sync_fn = uniform_table[uniform_name]) {
+    return maybe_sync_fn{sync_fn};
+  } else {
+    return std::nullopt;
+  }
+
+}
 
 std::vector<uniform_t> reflect_uniforms(GLuint program) {
 
@@ -145,7 +155,6 @@ static void * AppInit() {
   return state;
 }
 
-
 void checkErrors(const char *desc) {
 	GLenum e = glGetError();
 	if (e != GL_NO_ERROR) {
@@ -153,7 +162,7 @@ void checkErrors(const char *desc) {
 		exit(1);
 	}
 }
-
+// TODO: refactor/rename
 void shaderBoilerPlate(struct shader_manager& shader_m) {
   if (shader_m.shader_program) {
 
@@ -197,42 +206,31 @@ void shaderBoilerPlate(struct shader_manager& shader_m) {
 
       }
 
-    // attatch and link
-    // glUniform1i(glGetUniformLocation(r->progID, "samples"), 0);
-
-    // glUniform1i(glGetUniformLocation(r->progID, "albumArt"), 2);
-
     glAttachShader(shader_program, s);
 
 
 
   }
 
-
-
-
-
-
-
   shader_m.shader_program = shader_program;
   glLinkProgram(shader_program);
   shader_m.uniforms = reflect_uniforms(shader_m.shader_program);
 
-
-
-  // GLint fftLoc = glGetUniformLocation(shader_program, "fft");
-  //   if (fftLoc != -1)
-  //     glUniform1i(fftLoc, 0);
-    // checkErrors("Linking Textures");
 }
 
 
 void hydrate_uniforms(shader_manager shader_m, v_state_t* vs, a_state_t* as) {
   for(auto uniform : shader_m.uniforms) {
-    uniformTable[uniform.name](vs, as);
+    if (maybe_sync_fn boxed_fn = uniform_name_to_sync_fn(shader_m.uniformTable, uniform.name)) {
+      auto fn = *boxed_fn;
+      fn(vs, as);
+    } else {
+
+      std::cout << "no sync fn for " << uniform.name << std::endl;
+
+    }
   }
 }
-
 
 static void AppLoad(void * state) {
   s = (v_state_t*)state;
@@ -302,7 +300,7 @@ static void AppLoad(void * state) {
   s->shader_m.shaders.clear();
   s->shader_m.shaders.push_back(frag);
   s->shader_m.shaders.push_back(vert);
-
+  s->shader_m.uniformTable = register_uniform_srcs(s->shader_m.uniformTable);
 
   glGenBuffersARB(PBO_COUNT, pboIds);
   glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[0]);
