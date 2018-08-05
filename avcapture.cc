@@ -9,7 +9,7 @@
 #include <thread>
 #include "record.h"
 
-gboolean jhnn_bus_callback(GstBus *bus, GstMessage *message, struct Vstr_t *v)
+gboolean jhnn_bus_callback(GstBus *bus, GstMessage *message, Vstr_t *v)
 {
   g_print("%s\n", GST_MESSAGE_TYPE_NAME(message));
   switch (GST_MESSAGE_TYPE(message))
@@ -46,7 +46,7 @@ void jhnn_new_eos(GstAppSink* sink, gpointer data)
 
 
 
-void sangha_close_pipeline(struct Vstr_t& v) {
+void sangha_close_pipeline(Vstr_t& v) {
 gst_element_set_state(((GstElement*)v.pipeline), GST_STATE_NULL);
  g_print("recording loop exited");
   gst_object_unref(v.pipeline);
@@ -62,7 +62,7 @@ gboolean gstr_step(GMainLoop *loop) {
 
 }
 
-void sangha_stop_pipeline(struct Vstr_t& v)
+void sangha_stop_pipeline(Vstr_t& v)
 {
 g_print("%s\n", gst_flow_get_name(gst_app_src_end_of_stream(v.vsrc)));
 gst_element_send_event(v.fsink, gst_event_new_eos());
@@ -80,9 +80,9 @@ gst_buffer_fill(buff, 0, array, size);
 return gst_app_src_push_buffer(vsrc, buff);
 }
 
-struct Vstr_t sangha_vsrc(const gchar *pipeline_description)
+Vstr_t sangha_vsrc(const gchar *pipeline_description)
 {
-  struct Vstr_t v;
+  Vstr_t v;
   GError *error = NULL;
   if (!gst_is_initialized()) {
     gst_segtrap_set_enabled(FALSE);

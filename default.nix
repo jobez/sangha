@@ -44,6 +44,8 @@ in stdenv.mkDerivation rec {
     faust2
     fftw
     aubio
+    glm
+
   ];
   shellHook = '' '';
 }

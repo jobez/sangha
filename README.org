@@ -1,3 +1,7 @@
 * sangha
 
   an association of signals to delight the senses
+** sources of inspiration
+- http://www.ctrl-alt-test.fr/2018/a-dive-into-the-making-of-immersion/
+- https://github.com/patriciogonzalezvivo/glslViewer
+- http://peisik.untergrund.net/engines/

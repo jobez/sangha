@@ -1,6 +1,5 @@
 #include <ctime>
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -19,11 +18,12 @@
 #include "api.h"
 #include "libvengine.h"
 #include <thread>
-
+#include "mouse_events.h"
 /* ----------------------------------------------------------------------- */
 
+GLuint pboIds[PBO_COUNT];
 
-struct v_state_t * s = NULL;
+v_state_t * s = NULL;
 
 GLfloat points[] = {
   -1.0f, -1.0f,
@@ -32,14 +32,13 @@ GLfloat points[] = {
   1.0f, 1.0f
 };
 
-
 void fftToGL(v_state_t* vs, a_state_t* as) {
 
   as->audio_engine->fft->syncFFTExec();
 
-//   // Create one OpenGL texture
+  //   // Create one OpenGL texture
 
-// "Bind" the newly created texture : all future texture functions will modify this texture
+  // "Bind" the newly created texture : all future texture functions will modify this texture
 
   // todo: softcode buffersize (512 arg)
   glActiveTexture(GL_TEXTURE0);
@@ -54,26 +53,52 @@ void fftToGL(v_state_t* vs, a_state_t* as) {
 
 }
 
-// constants
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 800;
-const int CHANNEL_COUNT = 4;
-const int DATA_SIZE = SCREEN_WIDTH * SCREEN_HEIGHT * CHANNEL_COUNT;
-const GLenum PIXEL_FORMAT = GL_BGRA;
-const int PBO_COUNT = 2;
-
-GLuint pboIds[PBO_COUNT];
-
 // TODO: system wide mechanism for (who) engines to register the 'what' of their signals and have that pattern matched with the 'where' GPU placement logic
 uniform_table_t register_uniform_srcs(uniform_table_t uniformTable) {
 
   uniformTable["fft"]=  fftToGL;
   uniformTable["iTime"]=  [](v_state_t* vs, a_state_t* as){
-      glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), glfwGetTime());
+    glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), glfwGetTime());
   };
   uniformTable["iResolution"]= [](v_state_t* vs, a_state_t* as) {
-      glUniform2f(glGetUniformLocation(vs->shader_m.shader_program, "iResolution"), (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
+    glUniform2f(glGetUniformLocation(vs->shader_m.shader_program, "iResolution"), (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
 
+  };
+  // TODO: performance dimensionality of using auto
+  uniformTable["iMouse"] = [](v_state_t* vs, a_state_t* as) {
+    auto _x = vs->iMouse.x;
+    auto _y = vs->iMouse.y;
+    auto _z = vs->iMouse.z;
+    auto _w = vs->iMouse.w;
+
+    glUniform4f(glGetUniformLocation(vs->shader_m.shader_program, "iMouse"), _x, _y, _z, _w);
+  };
+
+  uniformTable["u_eye3d"] = [](v_state_t* vs, a_state_t* as) {
+    auto _x = vs->cam_s.m_eye3d.x;
+    auto _y = vs->cam_s.m_eye3d.y;
+    auto _z = vs->cam_s.m_eye3d.z;
+
+
+    glUniform3f(glGetUniformLocation(vs->shader_m.shader_program, "u_eye3d"), _x, _y, _z);
+  };
+
+  uniformTable["u_centre3d"] = [](v_state_t* vs, a_state_t* as) {
+    auto _x = vs->cam_s.m_centre3d.x;
+    auto _y = vs->cam_s.m_centre3d.y;
+    auto _z = vs->cam_s.m_centre3d.z;
+
+
+    glUniform3f(glGetUniformLocation(vs->shader_m.shader_program, "u_centre3d"), _x, _y, _z);
+  };
+
+  uniformTable["u_up3d"] = [](v_state_t* vs, a_state_t* as) {
+    auto _x = vs->cam_s.m_up3d.x;
+    auto _y = vs->cam_s.m_up3d.y;
+    auto _z = vs->cam_s.m_up3d.z;
+
+
+    glUniform3f(glGetUniformLocation(vs->shader_m.shader_program, "u_up3d"), _x, _y, _z);
   };
 
   return uniformTable;
@@ -106,17 +131,17 @@ std::vector<uniform_t> reflect_uniforms(GLuint program) {
 
   std::vector<GLint> values(properties.size());
   for(int attrib = 0; attrib < numActiveUniforms; ++attrib)
-{
-  glGetProgramResourceiv(program, GL_UNIFORM, attrib, properties.size(),
-                         &properties[0], values.size(), NULL, &values[0]);
+    {
+      glGetProgramResourceiv(program, GL_UNIFORM, attrib, properties.size(),
+                             &properties[0], values.size(), NULL, &values[0]);
 
-  nameData.resize(values[0]); //The length of the name.
-  glGetProgramResourceName(program, GL_UNIFORM, attrib, nameData.size(), NULL, &nameData[0]);
-  std::string name((char*)&nameData[0], nameData.size() - 1);
-  uniform_t uni(name, values[1]);
+      nameData.resize(values[0]); //The length of the name.
+      glGetProgramResourceName(program, GL_UNIFORM, attrib, nameData.size(), NULL, &nameData[0]);
+      std::string name((char*)&nameData[0], nameData.size() - 1);
+      uniform_t uni(name, values[1]);
 
-  unis.push_back(uni);
- }
+      unis.push_back(uni);
+    }
 
 
   return unis;
@@ -130,11 +155,6 @@ GLFWwindow* init_window() {
   }
 
   return glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "sangha", NULL, NULL);
-}
-
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-    glfwSetWindowShouldClose(window, GL_TRUE);
 }
 
 static void * AppInit() {
@@ -163,7 +183,7 @@ void checkErrors(const char *desc) {
 	}
 }
 // TODO: refactor/rename
-void shaderBoilerPlate(struct shader_manager& shader_m) {
+void shaderBoilerPlate(shader_manager& shader_m) {
   if (shader_m.shader_program) {
 
     glDeleteProgram(shader_m.shader_program);
@@ -242,13 +262,115 @@ static void AppLoad(void * state) {
 
   glfwSetKeyCallback(s->window, key_callback);
 
+  glfwSetScrollCallback(s->window, [&s](GLFWwindow* _window, double xoffset, double yoffset) {
+      auto fPixelDensity = 1;
+      onScroll(s->cam_s, -yoffset * fPixelDensity);
+    });
+
+  glfwSetMouseButtonCallback(s->window, [&s](GLFWwindow* window, int button, int action, int mods){
+      auto left_mouse_button_down = s->mouse_s.left_mouse_button_down;
+      auto iMouse = &s->iMouse;
+      auto mouse = &s->mouse_s;
+
+      if (button == GLFW_MOUSE_BUTTON_1) {
+        // update iMouse when left mouse button is pressed or released
+        if (action == GLFW_PRESS && !left_mouse_button_down) {
+          left_mouse_button_down = true;
+          iMouse->x = mouse->x;
+          iMouse->y = mouse->y;
+          iMouse->z = mouse->x;
+          iMouse->w = mouse->y;
+
+        } else if (action == GLFW_RELEASE && left_mouse_button_down) {
+          left_mouse_button_down = false;
+          iMouse->z = -iMouse->z;
+          iMouse->w = -iMouse->w;
+        }
+      }
+      if (action == GLFW_PRESS) {
+        mouse->drag.x = mouse->x;
+        mouse->drag.y = mouse->y;
+      }
+    });
+
+  glfwSetCursorPosCallback(s->window, [&s](GLFWwindow* _window, double x, double y) {
+      auto left_mouse_button_down = &s->mouse_s.left_mouse_button_down;
+      auto fPixelDensity = 1;
+      auto iMouse = &s->iMouse;
+      auto mouse = &s->mouse_s;
+
+      // Convert x,y to pixel coordinates relative to viewport.
+      // (0,0) is lower left corner.
+      y = viewport.w - y;
+      x *= fPixelDensity;
+      y *= fPixelDensity;
+      // mouse.velX,mouse.velY is the distance the mouse cursor has moved
+      // since the last callback, during a drag gesture.
+      // mouse.drag is the previous mouse position, during a drag gesture.
+      // Note that mouse.drag is *not* constrained to the viewport.
+      mouse->velX = x - mouse->drag.x;
+      mouse->velY = y - mouse->drag.y;
+      mouse->drag.x = x;
+      mouse->drag.y = y;
+
+      // mouse.x,mouse.y is the current cursor position, constrained
+      // to the viewport.
+      mouse->x = x;
+      mouse->y = y;
+
+
+      if (mouse->x < 0) mouse->x = 0;
+      if (mouse->y < 0) mouse->y = 0;
+      if (mouse->x > viewport.z * fPixelDensity) mouse->x = viewport.z * fPixelDensity;
+      if (mouse->y > viewport.w * fPixelDensity) mouse->y = viewport.w * fPixelDensity;
+
+      // update iMouse when cursor moves
+      if (left_mouse_button_down) {
+        iMouse->x = mouse->x;
+        iMouse->y = mouse->y;
+      }
+
+      /*
+       * TODO: the following code would best be moved into the
+       * mouse button callback. If you click the mouse button without
+       * moving the mouse, then using this code, the mouse click doesn't
+       * register until the cursor is moved. (@doug-moen)
+       */
+      int action1 = glfwGetMouseButton(s->window, GLFW_MOUSE_BUTTON_1);
+      int action2 = glfwGetMouseButton(s->window, GLFW_MOUSE_BUTTON_2);
+      int button = 0;
+
+      if (action1 == GLFW_PRESS) button = 1;
+      else if (action2 == GLFW_PRESS) button = 2;
+
+      // Lunch events
+      if (mouse->button == 0 && button != mouse->button) {
+        mouse->button = button;
+        onMouseClick(mouse->x,mouse->y,mouse->button);
+      }
+      else {
+        mouse->button = button;
+      }
+
+      if (mouse->velX != 0.0 || mouse->velY != 0.0) {
+        if (button != 0) onMouseDrag(s->mouse_s, s->cam_s, mouse->x,mouse->y,mouse->button);
+        else onMouseMove(mouse->x,mouse->y);
+      }
+    });
+
   glfwMakeContextCurrent(s->window);
 
   // start GLEW extension handler
   glewExperimental = GL_TRUE;
 
-
-
+  // Init camera
+  //
+  s->cam_s.m_cam.setViewport(SCREEN_WIDTH, SCREEN_HEIGHT);
+  s->cam_s.m_cam.setPosition(glm::vec3(0.0,0.0,-3.));
+  s->cam_s.m_up3d = glm::vec3(-0.25,0.866025,-0.433013);
+  s->cam_s.m_eye3d = glm::vec3(2.598076,3.0,4.5);
+  s->cam_s.m_centre3d = glm::vec3(0.,0.,0.);
+  s->cam_s.m_view2d = glm::mat3(1.);
   const GLenum err = glewInit();
 
   if (GLEW_OK != err)
@@ -293,8 +415,8 @@ static void AppLoad(void * state) {
 
 
   // shader marker
-  shader_t vert("./thing.vert", GL_VERTEX_SHADER);
-  shader_t frag("./jhnn.frag", GL_FRAGMENT_SHADER);
+  shader_t vert("./glsl/default.vert", GL_VERTEX_SHADER);
+  shader_t frag("./glsl/lab/one.frag", GL_FRAGMENT_SHADER);
 
 
   s->shader_m.shaders.clear();
@@ -315,7 +437,7 @@ static void AppLoad(void * state) {
 
 }
 
-void pollShaderFiles(struct shader_manager& shader_m) {
+void pollShaderFiles(shader_manager& shader_m) {
   /* printf("%i", shader_m.shaders.size()); */
   for (int i = 0; i < shader_m.shaders.size(); i++) {
     struct stat attr;
@@ -344,24 +466,24 @@ static int AppStep(void * state) {
 
 
   if (s->should_record) {
-  glReadBuffer(GL_FRONT);
+    glReadBuffer(GL_FRONT);
 
-  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
-  glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, 0);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
+    glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, 0);
 
-  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[nextIndex]);
-  s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[nextIndex]);
+    s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
 
-  if (s->capture) {
-    gstr_step(s->gstr.gloop);
-    hydrate_appsrc(s->gstr.vsrc, s->capture);
+    if (s->capture) {
+      gstr_step(s->gstr.gloop);
+      hydrate_appsrc(s->gstr.vsrc, s->capture);
 
-    /* save_png("./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RGBA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
-    glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
+      /* save_png("./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RGBA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
+      glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
 
-  }
+    }
 
-  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
   }
   glDrawBuffer(GL_BACK);
 
@@ -409,26 +531,26 @@ static int AppStep2(void * state, void * state2) {
   // if (resolutionLoc != -1) glUniform2f(resolutionLoc, (float)r->win->width, (float)r->win->height);
 
   if (s->should_record) {
-  glReadBuffer(GL_FRONT);
+    glReadBuffer(GL_FRONT);
 
-  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
-  glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, 0);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
+    glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, 0);
 
 
 
-  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[nextIndex]);
-  s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[nextIndex]);
+    s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
 
-  if (s->capture) {
-    gstr_step(s->gstr.gloop);
-    hydrate_appsrc(s->gstr.vsrc, s->capture);
+    if (s->capture) {
+      gstr_step(s->gstr.gloop);
+      hydrate_appsrc(s->gstr.vsrc, s->capture);
 
-    /* save_png(/"./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RG0BA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
-    glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
+      /* save_png(/"./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RG0BA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
+      glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
 
-  }
+    }
 
-  glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
   }
   glDrawBuffer(GL_BACK);
 
@@ -452,8 +574,8 @@ static int AppStep2(void * state, void * state2) {
 static void AppUnload(void * state) {
   glfwTerminate();
   if (s->should_record) {
-  sangha_stop_pipeline(s->gstr);
-  sangha_close_pipeline(s->gstr);
+    sangha_stop_pipeline(s->gstr);
+    sangha_close_pipeline(s->gstr);
   }
   s = (v_state_t*)state;
 
