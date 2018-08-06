@@ -54,16 +54,20 @@ void fftToGL(v_state_t* vs, a_state_t* as) {
 }
 
 // TODO: system wide mechanism for (who) engines to register the 'what' of their signals and have that pattern matched with the 'where' GPU placement logic
-uniform_table_t register_uniform_srcs(uniform_table_t uniformTable) {
+uniform_table_t register_uniform_srcs() {
+  uniform_table_t uniformTable;
 
   uniformTable["fft"]=  fftToGL;
+
   uniformTable["iTime"]=  [](v_state_t* vs, a_state_t* as){
     glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), glfwGetTime());
   };
+
   uniformTable["iResolution"]= [](v_state_t* vs, a_state_t* as) {
     glUniform2f(glGetUniformLocation(vs->shader_m.shader_program, "iResolution"), (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
 
   };
+
   // TODO: performance dimensionality of using auto
   uniformTable["iMouse"] = [](v_state_t* vs, a_state_t* as) {
     auto _x = vs->iMouse.x;
@@ -92,7 +96,7 @@ uniform_table_t register_uniform_srcs(uniform_table_t uniformTable) {
     glUniform3f(glGetUniformLocation(vs->shader_m.shader_program, "u_centre3d"), _x, _y, _z);
   };
 
-  uniformTable["u_up3d"] = [](v_state_t* vs, a_state_t* as) {
+ uniformTable["u_up3d"] = [](v_state_t* vs, a_state_t* as) {
     auto _x = vs->cam_s.m_up3d.x;
     auto _y = vs->cam_s.m_up3d.y;
     auto _z = vs->cam_s.m_up3d.z;
@@ -422,7 +426,8 @@ static void AppLoad(void * state) {
   s->shader_m.shaders.clear();
   s->shader_m.shaders.push_back(frag);
   s->shader_m.shaders.push_back(vert);
-  s->shader_m.uniformTable = register_uniform_srcs(s->shader_m.uniformTable);
+
+  s->shader_m.uniformTable = register_uniform_srcs();
 
   glGenBuffersARB(PBO_COUNT, pboIds);
   glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[0]);
@@ -433,7 +438,7 @@ static void AppLoad(void * state) {
   glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
   /* shaderBoilerPlate(s->shader_m); */
 
-  printf("Reload\n");
+  printf("Reloaad\n");
 
 }
 
@@ -454,52 +459,7 @@ void pollShaderFiles(shader_manager& shader_m) {
   }
 }
 
-static int AppStep(void * state) {
-  s = (v_state_t*)state;
-  pollShaderFiles(s->shader_m);
-  static int shift = 0;
-  static int index = 0;
-  int nextIndex = 0;
-
-  index = (index + 1) % PBO_COUNT;
-  nextIndex = (index + 1) % PBO_COUNT;
-
-
-  if (s->should_record) {
-    glReadBuffer(GL_FRONT);
-
-    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[index]);
-    glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, 0);
-
-    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, pboIds[nextIndex]);
-    s->capture = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
-
-    if (s->capture) {
-      gstr_step(s->gstr.gloop);
-      hydrate_appsrc(s->gstr.vsrc, s->capture);
-
-      /* save_png("./test.png", SCREEN_WIDTH, SCREEN_HEIGHT, 8, PNG_COLOR_TYPE_RGBA, s->capture, 4 * SCREEN_WIDTH, PNG_TRANSFORM_BGR); */
-      glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
-
-    }
-
-    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
-  }
-  glDrawBuffer(GL_BACK);
-
-
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glUseProgram(s->shader_m.shader_program);
-  glBindVertexArray(s->vao);
-  // draw points 0-3 from the currently bound VAO with current in-use shader
-  glDrawArrays(GL_TRIANGLES, 0, 3);
-  // update other events like input handling
-  glfwPollEvents();
-  // put the stuff we've been drawing onto the display
-  glfwSwapBuffers(s->window);
-
-  return glfwWindowShouldClose(s->window);
-}
+static int AppStep(void * state) {}
 
 
 

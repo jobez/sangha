@@ -48,7 +48,7 @@ struct v_state_t;
 
 // TODO: assess performative cost
 // https://www.bfilipek.com/2018/05/using-optional.html
-typedef std::function<void(v_state_t* vstate,a_state_t* astate)> sync_fn;
+typedef void (*sync_fn)(v_state_t* vstate,a_state_t* astate);
 
 typedef std::optional<sync_fn> maybe_sync_fn;
 

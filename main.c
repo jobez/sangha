@@ -24,7 +24,6 @@ static void AppLoad(const char* shared_object_path, struct app_t * app) {
     }
     void * handle = dlopen(shared_object_path, RTLD_NOW | RTLD_GLOBAL);
     if (handle != NULL) {
-      std::cout << "hey" << std::endl;
       app->handle = handle;
       app->id = attr.st_ino;
       struct api_t * api = (api_t*)dlsym(app->handle, "APP_API");
