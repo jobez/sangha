@@ -10,6 +10,9 @@
 #include "camera.h"
 #include <glm/gtx/matrix_transform_2d.hpp>
 #include <glm/gtx/rotate_vector.hpp>
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_impl_glfw.h"
+#include "ext/imgui/imgui_impl_opengl3.h"
 
 // constants
 const int SCREEN_WIDTH = 800;
@@ -105,4 +108,5 @@ struct v_state_t {
   glm::vec4 iMouse;
   camera_state cam_s;
   mouse_state mouse_s;
+  ImGuiIO& io;
 };

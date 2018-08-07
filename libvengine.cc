@@ -21,9 +21,40 @@
 #include "mouse_events.h"
 /* ----------------------------------------------------------------------- */
 
+
+
 GLuint pboIds[PBO_COUNT];
 
 v_state_t * s = NULL;
+
+void imgui_view(v_state_t* vs, a_state_t* as) {
+
+
+    // Start the Dear ImGui frame
+  ImGui_ImplOpenGL3_NewFrame();
+  ImGui_ImplGlfw_NewFrame();
+  ImGui::NewFrame();
+
+  static float f = 0.0f;
+  static int counter = 0;
+
+  ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+  ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+  ImGui::SliderFloat3("Light Intensity", (float*)&vs->cam_s.m_eye3d, 0.0f, 1.0f);
+  ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f representing a color
+
+  if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+    counter++;
+  ImGui::SameLine();
+  ImGui::Text("counter = %d", counter);
+
+  ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+  ImGui::End();
+
+
+}
+
 
 GLfloat points[] = {
   -1.0f, -1.0f,
@@ -265,6 +296,10 @@ static void AppLoad(void * state) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
   glfwSetKeyCallback(s->window, key_callback);
+  const char* glsl_version = "#version 420";
+
+
+
 
   glfwSetScrollCallback(s->window, [&s](GLFWwindow* _window, double xoffset, double yoffset) {
       auto fPixelDensity = 1;
@@ -375,6 +410,15 @@ static void AppLoad(void * state) {
   s->cam_s.m_eye3d = glm::vec3(2.598076,3.0,4.5);
   s->cam_s.m_centre3d = glm::vec3(0.,0.,0.);
   s->cam_s.m_view2d = glm::mat3(1.);
+
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  // s->io = ImGui::GetIO();
+  // (void)s->io;
+
+  ImGui_ImplGlfw_InitForOpenGL(s->window, true);
+  ImGui_ImplOpenGL3_Init(glsl_version);
+
   const GLenum err = glewInit();
 
   if (GLEW_OK != err)
@@ -512,6 +556,9 @@ static int AppStep2(void * state, void * state2) {
 
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
   }
+
+
+
   glDrawBuffer(GL_BACK);
 
 
@@ -522,6 +569,11 @@ static int AppStep2(void * state, void * state2) {
 
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+  imgui_view(s, audio_state);
+
+  ImGui::Render();
+
+  ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
   // update other events like input handling
   glfwPollEvents();

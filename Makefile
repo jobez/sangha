@@ -6,7 +6,7 @@ all: main libvengine.so libaengine.so
 main: main.c
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
 
-libvengine.so: mouse_events.cc libvengine.cc avcapture.cc utils.cc node.cpp camera.cpp  utils_viewer.cpp
+libvengine.so: mouse_events.cc libvengine.cc avcapture.cc utils.cc node.cpp camera.cpp utils_viewer.cpp ext/imgui/imgui.cpp ext/imgui/imgui_demo.cpp ext/imgui/imgui_draw.cpp ext/imgui/imgui_impl_glfw.cpp ext/imgui/imgui_impl_opengl3.cpp
 	$(CXX) $(CFLAGS) -shared $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 libaengine.so: libaengine.cc SanghaFaust.cc SanghaAudio.cpp utils.cc
