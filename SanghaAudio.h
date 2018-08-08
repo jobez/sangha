@@ -7,7 +7,7 @@
 #include <tgmath.h>
 #include <complex>
 #include <fftw3.h>
-
+#include <ableton/Link.hpp>
 
 // https://github.com/dgranosa/liveW/blob/master/include/pulsefft.h
 enum w_type {

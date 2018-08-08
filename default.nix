@@ -45,7 +45,10 @@ in stdenv.mkDerivation rec {
     fftw
     aubio
     glm
+    asio
 
   ];
-  shellHook = '' '';
+  shellHook = ''
+export ASIO_PATH=${asio};
+'';
 }

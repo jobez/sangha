@@ -41,7 +41,7 @@ void imgui_view(v_state_t* vs, a_state_t* as) {
   ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
   ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-  ImGui::SliderFloat3("Light Intensity", (float*)&vs->cam_s.m_eye3d, 0.0f, 1.0f);
+  ImGui::SliderFloat3("Eye3d uniform", (float*)&vs->cam_s.m_eye3d, 0.0f, 1.0f);
   ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f representing a color
 
   if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
