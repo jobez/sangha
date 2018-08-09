@@ -38,16 +38,20 @@ void imgui_view(v_state_t* vs, a_state_t* as) {
   static float f = 0.0f;
   static int counter = 0;
 
-  ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
+  static double tempo = 120.;
+  auto beat_time = as->audio_engine->beatTime();
+  ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+  ImGui::InputDouble("beat time", &beat_time, 0.01f, 1.0f, "%.8f");
+  ImGui::InputDouble("tempo", &tempo, 0.01f, 1.0f, "%.8f");
   ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
   ImGui::SliderFloat3("Eye3d uniform", (float*)&vs->cam_s.m_eye3d, 0.0f, 1.0f);
   ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f representing a color
 
-  if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-    counter++;
+  if (ImGui::Button("Set Tempo"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+    as->audio_engine->setTempo(tempo);
   ImGui::SameLine();
-  ImGui::Text("counter = %d", counter);
+  ImGui::Text("tempo = %d", tempo);
 
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
   ImGui::End();
@@ -65,7 +69,7 @@ GLfloat points[] = {
 
 void fftToGL(v_state_t* vs, a_state_t* as) {
 
-  as->audio_engine->fft->syncFFTExec();
+   as->audio_engine->fft->syncFFTExec();
 
   //   // Create one OpenGL texture
 
@@ -91,7 +95,9 @@ uniform_table_t register_uniform_srcs() {
   uniformTable["fft"]=  fftToGL;
 
   uniformTable["iTime"]=  [](v_state_t* vs, a_state_t* as){
-    glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), glfwGetTime());
+    auto beat_time = as->audio_engine->beatTime();
+
+    glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), beat_time);
   };
 
   uniformTable["iResolution"]= [](v_state_t* vs, a_state_t* as) {

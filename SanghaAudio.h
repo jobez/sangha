@@ -7,17 +7,18 @@
 #include <tgmath.h>
 #include <complex>
 #include <fftw3.h>
+#include <ableton/link/HostTimeFilter.hpp>
 #include <ableton/Link.hpp>
 
 // https://github.com/dgranosa/liveW/blob/master/include/pulsefft.h
 enum w_type {
-    WINDOW_TRIANGLE,
-    WINDOW_HANNING,
-    WINDOW_HAMMING,
-    WINDOW_BLACKMAN,
-    WINDOW_BLACKMAN_HARRIS,
-    WINDOW_WELCH,
-    WINDOW_FLAT,
+  WINDOW_TRIANGLE,
+  WINDOW_HANNING,
+  WINDOW_HAMMING,
+  WINDOW_BLACKMAN,
+  WINDOW_BLACKMAN_HARRIS,
+  WINDOW_WELCH,
+  WINDOW_FLAT,
 };
 
 class SanghaFFT
@@ -43,13 +44,56 @@ class SanghaFFT
 
 
 class SanghaAudio
- : public jackaudio_midi
+: public jackaudio_midi
 {
  private:
  public:
+  struct EngineData
+  {
+    double requestedTempo;
+    bool requestStart;
+    bool requestStop;
+    double quantum;
+    bool startStopSyncOn;
+  };
+
+  std::mutex mEngineDataGuard;
+  double mSampleRate;
+  double mSampleTime;
+  std::chrono::microseconds mOutputLatency;
+  std::chrono::microseconds mTimeAtLastClick;
+  EngineData pullEngineData();
+
+  ableton::Link* mLink;
+  ableton::link::HostTimeFilter<ableton::link::platform::Clock> mHostTimeFilter;
+
+  EngineData mSharedEngineData;
+  EngineData mLockfreeEngineData;
+
   SanghaAudio(int length);
   void updateDsp(dsp* new_dsp);
+
+  std::vector<double> mBuffer;
+
   SanghaFFT* fft;
   void connectPorts();
   int process(jack_nframes_t nframes);
+
+  bool mIsPlaying;
+  void startPlaying();
+  void stopPlaying();
+  bool isPlaying() const;
+  double beatTime() const;
+  void setTempo(double tempo);
+  double quantum() const;
+  void setQuantum(double quantum);
+  bool isStartStopSyncEnabled() const;
+  void renderMetronomeIntoBuffer(ableton::Link::SessionState sessionState,
+                                 double quantum,
+                                 std::chrono::microseconds beginHostTime,
+                                 std::size_t numSamples);
+  void setStartStopSyncEnabled(bool enabled);
+  void setBufferSize(std::size_t size);
+  void setSampleRate(double sampleRate);
+
 };

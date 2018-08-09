@@ -26,6 +26,8 @@ static void * AppInit() {
   s = (a_state_t*)state;
   s->dsp_manager = {.dsp_files = std::vector<SanghaFaust::dsp_t>()};
 
+
+
   SanghaFaust::dsp_t fooDsp("./osc.dsp", "example");
 
   s->dsp_manager.dsp_files.push_back(fooDsp);
