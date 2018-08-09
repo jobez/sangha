@@ -48,8 +48,12 @@ void imgui_view(v_state_t* vs, a_state_t* as) {
   ImGui::SliderFloat3("Eye3d uniform", (float*)&vs->cam_s.m_eye3d, 0.0f, 1.0f);
   ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f representing a color
 
+  if (ImGui::Button("start playing"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+    as->audio_engine->startPlaying();
+
   if (ImGui::Button("Set Tempo"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
     as->audio_engine->setTempo(tempo);
+
   ImGui::SameLine();
   ImGui::Text("tempo = %d", tempo);
 
@@ -69,7 +73,7 @@ GLfloat points[] = {
 
 void fftToGL(v_state_t* vs, a_state_t* as) {
 
-   as->audio_engine->fft->syncFFTExec();
+  // as->audio_engine->fft->syncFFTExec();
 
   //   // Create one OpenGL texture
 

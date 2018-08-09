@@ -152,11 +152,19 @@ SanghaAudio::SanghaAudio(int length)
 {
   mLink = new ableton::Link(120.);
   fft = new SanghaFFT(length);
+  const double bufferSize = jack_get_buffer_size(fClient);
+  const double sampleRate = jack_get_sample_rate(fClient);
 
+  this->setBufferSize(static_cast<std::size_t>(1024));
+  this->setSampleRate(sampleRate);
+
+  this->mOutputLatency =
+    std::chrono::microseconds(llround(1.0e6 * bufferSize / sampleRate));
 }
 
 void SanghaAudio::connectPorts()
 {
+  // TODO: do not hardcode reconnect port
 	auto incudine_ports = jack_get_ports(fClient, "incudine", 0, JackPortIsInput);
 	for(int i = 0; i < fOutputPorts.size(); i = i + 1) {
 		std::cout << incudine_ports[i] << std::endl;
@@ -288,20 +296,26 @@ void SanghaAudio::renderMetronomeIntoBuffer(const ableton::Link::SessionState se
   for (std::size_t i = 0; i < numSamples; ++i)
   {
     double amplitude = 0.;
+
     // Compute the host time for this sample and the last.
     const auto hostTime = beginHostTime + microseconds(llround(i * microsPerSample));
+
+
     const auto lastSampleHostTime = hostTime - microseconds(llround(microsPerSample));
+
 
     // Only make sound for positive beat magnitudes. Negative beat
     // magnitudes are count-in beats.
     if (sessionState.beatAtTime(hostTime, quantum) >= 0.)
     {
+
       // If the phase wraps around between the last sample and the
       // current one with respect to a 1 beat quantum, then a click
       // should occur.
       if (sessionState.phaseAtTime(hostTime, 1)
           < sessionState.phaseAtTime(lastSampleHostTime, 1))
       {
+
         mTimeAtLastClick = hostTime;
       }
 
@@ -312,6 +326,7 @@ void SanghaAudio::renderMetronomeIntoBuffer(const ableton::Link::SessionState se
       // the click tone into this sample
       if (secondsAfterClick < clickDuration)
       {
+
         // If the phase of the last beat with respect to the current
         // quantum was zero, then it was at a quantum boundary and we
         // want to use the high tone. For other beats within the
@@ -324,6 +339,7 @@ void SanghaAudio::renderMetronomeIntoBuffer(const ableton::Link::SessionState se
                     * (1 - sin(5 * M_PI * secondsAfterClick.count()));
       }
     }
+
     mBuffer[i] = amplitude;
   }
 }
@@ -335,13 +351,18 @@ int	SanghaAudio::process(jack_nframes_t nframes)
   using namespace std::chrono;
   // AudioEngine& engine = mEngine;
 
-  const auto hostTime = mHostTimeFilter.sampleTimeToHostTime(mSampleTime);
+  const auto _hostTime = mHostTimeFilter.sampleTimeToHostTime(mSampleTime);
+
+  mSampleTime += nframes;
+
+  const auto hostTime = _hostTime + mOutputLatency;
 
   const std::size_t numSamples = nframes;
   const auto engineData = pullEngineData();
 
   auto sessionState = mLink->captureAudioSessionState();
-std::fill(mBuffer.begin(), mBuffer.end(), 0);
+
+  std::fill(mBuffer.begin(), mBuffer.end(), 0);
 
   if (engineData.requestStart)
   {
@@ -378,8 +399,18 @@ std::fill(mBuffer.begin(), mBuffer.end(), 0);
     // As long as the engine is playing, generate metronome clicks in
     // the buffer at the appropriate beats.
     renderMetronomeIntoBuffer(sessionState, engineData.quantum, hostTime, numSamples);
+
+
+    for (int k = 0; k < 2; ++k)
+  {
+    float* buffer = static_cast<float*>(jack_port_get_buffer(fOutputPorts[k], nframes));
+    for (unsigned long i = 0; i < nframes; ++i) {
+      buffer[i] = static_cast<float>(mBuffer[i]);
+  }
+  }
   }
 
+  // std::cout << mIsPlaying << std::endl;
 
 
 
@@ -391,26 +422,27 @@ std::fill(mBuffer.begin(), mBuffer.end(), 0);
 
 
 
-  AVOIDDENORMALS;
-  // Retrieve JACK inputs/output audio buffers
-  float** fInChannel = (float**)alloca(fInputPorts.size() * sizeof(float*));
 
-  for (size_t i = 0; i < fInputPorts.size(); i++) {
-    fInChannel[i] = (float*)jack_port_get_buffer(fInputPorts[i], nframes);
-  }
+  // AVOIDDENORMALS;
+  // // Retrieve JACK inputs/output audio buffers
+  // float** fInChannel = (float**)alloca(fInputPorts.size() * sizeof(float*));
 
-  float** fOutChannel = (float**)alloca(fOutputPorts.size() * sizeof(float*));
+  // for (size_t i = 0; i < fInputPorts.size(); i++) {
+  //   fInChannel[i] = (float*)jack_port_get_buffer(fInputPorts[i], nframes);
+  // }
 
-  for (size_t i = 0; i < fOutputPorts.size(); i++) {
-    fOutChannel[i] = (float*)jack_port_get_buffer(fOutputPorts[i], nframes);
-  }
+  // float** fOutChannel = (float**)alloca(fOutputPorts.size() * sizeof(float*));
 
-  fDSP->compute(nframes,
-                reinterpret_cast<FAUSTFLOAT**>(fInChannel),
-                reinterpret_cast<FAUSTFLOAT**>(fOutChannel));
+  // for (size_t i = 0; i < fOutputPorts.size(); i++) {
+  //   fOutChannel[i] = (float*)jack_port_get_buffer(fOutputPorts[i], nframes);
+  // }
+
+  // fDSP->compute(nframes,
+  //               reinterpret_cast<FAUSTFLOAT**>(fInChannel),
+  //               reinterpret_cast<FAUSTFLOAT**>(fOutChannel));
 
 
-  fft->syncSource(fOutChannel[1], nframes);
+  // fft->syncSource(fOutChannel[1], nframes);
 
   return 0;
 }
