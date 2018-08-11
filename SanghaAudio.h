@@ -48,6 +48,9 @@ class SanghaAudio
 {
  private:
  public:
+  SanghaAudio(int length);
+
+  // link stuff
   struct EngineData
   {
     double requestedTempo;
@@ -70,14 +73,10 @@ class SanghaAudio
   EngineData mSharedEngineData;
   EngineData mLockfreeEngineData;
 
-  SanghaAudio(int length);
+
   void updateDsp(dsp* new_dsp);
 
   std::vector<double> mBuffer;
-
-  SanghaFFT* fft;
-  void connectPorts();
-  int process(jack_nframes_t nframes);
 
   bool mIsPlaying;
   void startPlaying();
@@ -95,5 +94,10 @@ class SanghaAudio
   void setStartStopSyncEnabled(bool enabled);
   void setBufferSize(std::size_t size);
   void setSampleRate(double sampleRate);
+
+  // fft  / faust stuff
+  SanghaFFT* fft;
+  void connectPorts();
+  int process(jack_nframes_t nframes);
 
 };

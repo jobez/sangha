@@ -150,16 +150,18 @@ SanghaAudio::SanghaAudio(int length)
   , mTimeAtLastClick{}
   , mIsPlaying(false)
 {
+  // const double bufferSize = jack_get_buffer_size(fClient);
+  // const double sampleRate = jack_get_sample_rate(fClient);
+
+
   mLink = new ableton::Link(120.);
   fft = new SanghaFFT(length);
-  const double bufferSize = jack_get_buffer_size(fClient);
-  const double sampleRate = jack_get_sample_rate(fClient);
 
-  this->setBufferSize(static_cast<std::size_t>(1024));
-  this->setSampleRate(sampleRate);
+  this->setBufferSize(static_cast<std::size_t>(length));
+  this->setSampleRate(mSampleRate);
 
   this->mOutputLatency =
-    std::chrono::microseconds(llround(1.0e6 * bufferSize / sampleRate));
+    std::chrono::microseconds(llround(1.0e6 * length / mSampleRate));
 }
 
 void SanghaAudio::connectPorts()
@@ -443,6 +445,6 @@ int	SanghaAudio::process(jack_nframes_t nframes)
 
 
   // fft->syncSource(fOutChannel[1], nframes);
-
+  //
   return 0;
 }
