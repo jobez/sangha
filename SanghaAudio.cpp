@@ -439,7 +439,7 @@ int	SanghaAudio::process(jack_nframes_t nframes)
 
 
 
-  typedef std::chrono::duration<double> double_seconds;
+
 
 
   fDSP->compute(nframes,

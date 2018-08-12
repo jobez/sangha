@@ -47,7 +47,7 @@ void imgui_view(v_state_t* vs, a_state_t* as) {
   ImGui::InputDouble("tempo", &tempo, 0.01f, 1.0f, "%.8f");
   ImGui::InputDouble("quantum", &quantum, 1.0f, 8.0f, "%.8f");
   // ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-  ImGui::SliderFloat3("Eye3d uniform", (float*)&vs->cam_s.m_eye3d, 0.0f, 10.0f);
+  // ImGui::SliderFloat3("Eye3d uniform", (float*)&vs->cam_s.m_eye3d, 0.0f, 10.0f);
 
 
   if (ImGui::Button("start playing"))                            // Buttons return true when clicked (most widgets return true when edited/activated)

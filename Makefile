@@ -19,5 +19,8 @@ test: main libvengine.so libaengine.so
 run: main libvengine.so libaengine.so
 	optirun ./$<
 
+profile: main libvengine.so libaengine.so
+	optirun operf ./$<
+
 clean:
 	$(RM) main *.so
