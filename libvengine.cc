@@ -40,19 +40,28 @@ void imgui_view(v_state_t* vs, a_state_t* as) {
 
 
   static double tempo = 120.;
+  static double quantum = 4.;
   auto beat_time = as->audio_engine->beatTime();
   ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
   ImGui::InputDouble("beat time", &beat_time, 0.01f, 1.0f, "%.8f");
   ImGui::InputDouble("tempo", &tempo, 0.01f, 1.0f, "%.8f");
-  ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-  ImGui::SliderFloat3("Eye3d uniform", (float*)&vs->cam_s.m_eye3d, 0.0f, 1.0f);
-  ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f representing a color
+  ImGui::InputDouble("quantum", &quantum, 1.0f, 8.0f, "%.8f");
+  // ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+  ImGui::SliderFloat3("Eye3d uniform", (float*)&vs->cam_s.m_eye3d, 0.0f, 10.0f);
+
 
   if (ImGui::Button("start playing"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
     as->audio_engine->startPlaying();
 
   if (ImGui::Button("Set Tempo"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
     as->audio_engine->setTempo(tempo);
+
+  if (ImGui::Button("Set Quantum"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+    as->audio_engine->setQuantum(quantum);
+
+  if (ImGui::Button("Should Close")) {
+      glfwSetWindowShouldClose(vs->window, GL_TRUE);
+    }
 
   ImGui::SameLine();
   ImGui::Text("tempo = %d", tempo);
@@ -73,7 +82,7 @@ GLfloat points[] = {
 
 void fftToGL(v_state_t* vs, a_state_t* as) {
 
-  // as->audio_engine->fft->syncFFTExec();
+  as->audio_engine->fft->syncFFTExec();
 
   //   // Create one OpenGL texture
 
@@ -102,6 +111,13 @@ uniform_table_t register_uniform_srcs() {
     auto beat_time = as->audio_engine->beatTime();
 
     glUniform1f(glGetUniformLocation(vs->shader_m.shader_program, "iTime"), beat_time);
+  };
+
+
+  uniformTable["beatPerBar"]=  [](v_state_t* vs, a_state_t* as){
+    auto beat_time = as->audio_engine->quantum();
+
+    glUniform1i(glGetUniformLocation(vs->shader_m.shader_program, "beatPerBar"), beat_time);
   };
 
   uniformTable["iResolution"]= [](v_state_t* vs, a_state_t* as) {

@@ -73,8 +73,8 @@ void enact_engine_loop(const char* shared_object_path, struct app_t engine) {
 int main() {
   struct app_t vengine = {0};
   struct app_t aengine = {0};
-  /* std::thread visual_engine_thread(enact_engine, "./libaengine.so", aengine); */
-  /* std::thread audio_engine_thread(enact_engine, "./libaengine.so", aengine); */
+  /* std::thread visual_engine_thread(enact_engine_loop, "./libaengine.so", aengine); */
+  /* std::thread audio_engine_thread(enact_engine_loop, "./libaengine.so", aengine); */
   /* audio_engine_thread.join(); */
   /* visual_engine_thread.join(); */
 

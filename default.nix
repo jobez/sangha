@@ -46,7 +46,7 @@ in stdenv.mkDerivation rec {
     aubio
     glm
     asio
-
+    gperftools
   ];
   shellHook = ''
 export ASIO_PATH=${asio};

@@ -143,7 +143,7 @@ void SanghaFFT::syncFFTExec()
 
 SanghaAudio::SanghaAudio(int length)
   :
-   mSampleRate(44100.)
+   mSampleRate(48000.)
   , mOutputLatency(0)
   , mSharedEngineData({0., false, false, 4., false})
   , mLockfreeEngineData(mSharedEngineData)
@@ -167,7 +167,7 @@ SanghaAudio::SanghaAudio(int length)
 void SanghaAudio::connectPorts()
 {
   // TODO: do not hardcode reconnect port
-	auto incudine_ports = jack_get_ports(fClient, "incudine", 0, JackPortIsInput);
+	auto incudine_ports = jack_get_ports(fClient, "JACK Input Client", 0, JackPortIsInput);
 	for(int i = 0; i < fOutputPorts.size(); i = i + 1) {
 		std::cout << incudine_ports[i] << std::endl;
 		std::cout << jack_port_name(fOutputPorts[i]) << std::endl;
@@ -403,13 +403,7 @@ int	SanghaAudio::process(jack_nframes_t nframes)
     renderMetronomeIntoBuffer(sessionState, engineData.quantum, hostTime, numSamples);
 
 
-    for (int k = 0; k < 2; ++k)
-  {
-    float* buffer = static_cast<float*>(jack_port_get_buffer(fOutputPorts[k], nframes));
-    for (unsigned long i = 0; i < nframes; ++i) {
-      buffer[i] = static_cast<float>(mBuffer[i]);
-  }
-  }
+
   }
 
   // std::cout << mIsPlaying << std::endl;
@@ -425,26 +419,42 @@ int	SanghaAudio::process(jack_nframes_t nframes)
 
 
 
-  // AVOIDDENORMALS;
-  // // Retrieve JACK inputs/output audio buffers
-  // float** fInChannel = (float**)alloca(fInputPorts.size() * sizeof(float*));
+  AVOIDDENORMALS;
+  // Retrieve JACK inputs/output audio buffers
+  float** fInChannel = (float**)alloca(fInputPorts.size() * sizeof(float*));
 
-  // for (size_t i = 0; i < fInputPorts.size(); i++) {
-  //   fInChannel[i] = (float*)jack_port_get_buffer(fInputPorts[i], nframes);
-  // }
+  for (size_t i = 0; i < fInputPorts.size(); i++) {
+    fInChannel[i] = (float*)jack_port_get_buffer(fInputPorts[i], nframes);
+  }
 
-  // float** fOutChannel = (float**)alloca(fOutputPorts.size() * sizeof(float*));
+  float** fOutChannel = (float**)alloca(fOutputPorts.size() * sizeof(float*));
 
-  // for (size_t i = 0; i < fOutputPorts.size(); i++) {
-  //   fOutChannel[i] = (float*)jack_port_get_buffer(fOutputPorts[i], nframes);
-  // }
+  for (size_t i = 0; i < fOutputPorts.size(); i++) {
+    fOutChannel[i] = (float*)jack_port_get_buffer(fOutputPorts[i], nframes);
+  }
 
   // fDSP->compute(nframes,
   //               reinterpret_cast<FAUSTFLOAT**>(fInChannel),
   //               reinterpret_cast<FAUSTFLOAT**>(fOutChannel));
 
 
-  // fft->syncSource(fOutChannel[1], nframes);
-  //
+
+  typedef std::chrono::duration<double> double_seconds;
+
+
+  fDSP->compute(nframes,
+                nullptr,
+                reinterpret_cast<FAUSTFLOAT**>(fOutChannel));
+
+  for (int k = 0; k < 2; ++k)
+  {
+    float* buffer = fOutChannel[k];
+    for (unsigned long i = 0; i < nframes; ++i) {
+      buffer[i] *= static_cast<float>(mBuffer[i]);
+  }
+  }
+
+  fft->syncSource(fOutChannel[1], nframes);
+
   return 0;
 }
