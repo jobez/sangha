@@ -42,7 +42,7 @@ class SanghaFFT
   std::complex<double> *m_Out;
 };
 
-
+//  separate dsp from audioplatform?
 class SanghaAudio
 : public jackaudio_midi
 {

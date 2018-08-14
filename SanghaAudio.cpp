@@ -450,7 +450,7 @@ int	SanghaAudio::process(jack_nframes_t nframes)
   {
     float* buffer = fOutChannel[k];
     for (unsigned long i = 0; i < nframes; ++i) {
-      buffer[i] *= static_cast<float>(mBuffer[i]);
+      buffer[i] += static_cast<float>(mBuffer[i]);
   }
   }
 

@@ -1,27 +1,36 @@
 #pragma once
 #include <faust/dsp/llvm-dsp.h>
 #include "SanghaAudio.h"
+#include <tuple>
 #include "utils.h"
+
+// what is the relationship between a chain of dsps and a track/instrument?
+// track = <instrument, notes/beat> enact(track, beat)
+// instrument x rack
+
+
 
 namespace SanghaFaust {
 
-  struct dsp_t {
+  struct DspSrc {
     std::string name;
     std::string filename;
     time_t last_mod = 0;
-    dsp_t(std::string filename, std::string name) :
-      filename(filename),
-      name(name)
-  {
-  }
   };
 
-  struct dsp_manager_t {
-    std::vector<dsp_t> dsp_files;
+  // typedef std::tuple<DspSrc, Dsp*> ReloadableDsp;
+  // typedef std::vector<ReloadableDsp> ReloadableDsps;
+  typedef std::vector<dsp*> Dsps;
+  typedef std::vector<DspSrc> DspSrcs;
+
+
+  struct DspManager {
+    DspSrcs dspSrcs;
   };
 
+
+  dsp* join_dsps(DspSrcs dsps);
   dsp* str_to_dsp (std::string dsp_name, std::string dsp_str);
-  SanghaAudio* init_jack(char *caudio_name, dsp* dsp);
-  void poll_dsp_files(dsp_manager_t& dsp_manager, SanghaAudio* audio);
-
+  SanghaAudio* init_audio_engine(char *caudio_name, dsp* dsp);
+  void poll_dsp_files(DspManager& dsp_manager, SanghaAudio* audio);
 }

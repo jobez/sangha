@@ -5,6 +5,7 @@
 #include <faust/gui/OSCUI.h>
 #include <faust/gui/httpdUI.h>
 #include <faust/gui/MidiUI.h>
+#include <faust/dsp/dsp-combiner.h>
 
 
 namespace SanghaFaust
@@ -20,22 +21,40 @@ namespace SanghaFaust
     return dsp_fact->createDSPInstance();
   }
 
+  dsp* join_dsps(DspSrcs dspSrcs) {
+
+    Dsps dsps{};
+    std::transform(dspSrcs.begin(), dspSrcs.end(), std::back_inserter(dsps),
+                   [](DspSrc dspSrc){
+                     std::cout << dspSrc.filename << std::endl;
+                     auto src = get_file_contents(dspSrc.filename.c_str());
+                     return str_to_dsp(dspSrc.name, src);} );
+
+    dsp* paraDsp = std::accumulate(std::next(dsps.begin()), dsps.end(), dsps[0],
+                                        [](dsp* a, dsp* b){
+
+                                     return (dsp*) new dsp_parallelizer(b, a,  1024);
+
+                                        });
+
+    return paraDsp;
+  }
+
   // TODO: this doesn't really generalize to the more than 1 case yet
-  void poll_dsp_files(dsp_manager_t& dsp_manager, SanghaAudio* audio) {
-    for(dsp_t& dsp_file : dsp_manager.dsp_files) {
+  void poll_dsp_files(DspManager& dm, SanghaAudio* audio) {
+    for(DspSrc& df : dm.dspSrcs) {
       struct stat attr;
       if (file_is_modified(attr,
-                           dsp_file.filename.c_str(),
-                           dsp_file.last_mod)) {
-        dsp_file.last_mod = attr.st_mtime;
-        dsp* updated_dsp = str_to_dsp(dsp_file.name, get_file_contents(dsp_file.filename.c_str()));
-        audio->updateDsp(updated_dsp);
+                           df.filename.c_str(),
+                           df.last_mod)) {
+        df.last_mod = attr.st_mtime;
+        audio->updateDsp(join_dsps(dm.dspSrcs));
         audio->start();
       }
     }
   };
 
-  SanghaAudio* init_jack(char *caudio_name, dsp* dsp)
+  SanghaAudio* init_audio_engine(char *caudio_name, dsp* dsp)
   {
 
     SanghaAudio* audio = new SanghaAudio(1024);
