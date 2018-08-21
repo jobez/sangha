@@ -40,6 +40,7 @@ in stdenv.mkDerivation rec {
     pkgconfig
     glfw
     llvm_5
+
     jack2Full
     faust2
     fftw
@@ -47,6 +48,8 @@ in stdenv.mkDerivation rec {
     glm
     asio
     gperftools
+    libsndfile
+
   ];
   shellHook = ''
 export ASIO_PATH=${asio};

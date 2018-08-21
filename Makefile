@@ -22,5 +22,8 @@ run: main libvengine.so libaengine.so
 profile: main libvengine.so libaengine.so
 	optirun operf ./$<
 
+jitplayground: jit/JitFromScratch.cpp
+	$(CXX) $(CFLAGS) -o $@ $^
+
 clean:
-	$(RM) main *.so
+	$(RM) main jitplayground *.so
