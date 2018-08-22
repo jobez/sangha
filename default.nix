@@ -49,7 +49,7 @@ in stdenv.mkDerivation rec {
     asio
     gperftools
     libsndfile
-
+    protobuf
   ];
   shellHook = ''
 export ASIO_PATH=${asio};

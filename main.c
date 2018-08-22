@@ -3,6 +3,8 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 #include "api.h"
+#include "utils.h"
+#include "jit/sanghaJIT.hpp"
 #include <iostream>
 #include <thread>
 
@@ -57,7 +59,9 @@ void AppUnload(struct app_t * app) {
   }
 }
 
-
+int sangha_double (int arg) {
+  return 8 * arg;
+}
 
 void enact_engine_loop(const char* shared_object_path, struct app_t engine) {
   while(1) {
@@ -70,7 +74,9 @@ void enact_engine_loop(const char* shared_object_path, struct app_t engine) {
   AppUnload(&engine);
 }
 
-int main() {
+int main(int argc, char **argv) {
+  addToPST("sangha_double", &sangha_double);
+
   struct app_t vengine = {0};
   struct app_t aengine = {0};
   /* std::thread visual_engine_thread(enact_engine_loop, "./libaengine.so", aengine); */
@@ -78,21 +84,22 @@ int main() {
   /* audio_engine_thread.join(); */
   /* visual_engine_thread.join(); */
 
-  while(1) {
-    AppLoad("./libaengine.so", &aengine);
-    AppLoad("./libvengine.so", &vengine);
+  entry(argc, argv);
+  /* while(1) { */
+  /*   AppLoad("./libaengine.so", &aengine); */
+  /*   AppLoad("./libvengine.so", &vengine); */
 
-    if (aengine.handle != NULL)
-      if (aengine.api.Step(aengine.state) != 0)
-        break;
+  /*   if (aengine.handle != NULL) */
+  /*     if (aengine.api.Step(aengine.state) != 0) */
+  /*       break; */
 
-    if (vengine.handle != NULL)
-      if (vengine.api.Step2(vengine.state, aengine.state) != 0)
-        break;
+  /*   if (vengine.handle != NULL) */
+  /*     if (vengine.api.Step2(vengine.state, aengine.state) != 0) */
+  /*       break; */
 
-  }
-  AppUnload(&vengine);
-  AppUnload(&aengine);
+  /* } */
+  /* AppUnload(&vengine); */
+  /* AppUnload(&aengine); */
 
   /* enact_engine("./libvengine.so", vengine); */
 

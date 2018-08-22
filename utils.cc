@@ -1,5 +1,13 @@
 #include "utils.h"
 
+HostProcessSymbolTable hostProcessSymbolTable;
+
+void addToPST(std::string name, voidFunctionType fn) {
+
+  hostProcessSymbolTable[name] = fn;
+
+}
+
 void debug_output_of_array(std::string path, float* ffw_buffer) {
 
 
@@ -38,4 +46,18 @@ int file_is_modified(struct stat& file_stat, const char *path, time_t oldMTime) 
     exit(errno);
   }
   return file_stat.st_mtime > oldMTime;
+}
+
+
+voidFunctionType lookupPST(std::string mangledName, Mangler mangler) {
+
+  for( const auto& pair : hostProcessSymbolTable )
+    {
+      if(mangledName == mangler(pair.first)) {
+        return pair.second;
+      }
+    }
+
+  return nullptr;
+
 }
