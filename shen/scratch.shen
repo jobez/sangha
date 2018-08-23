@@ -26,7 +26,7 @@
 (datatype name
 
   P : process;
-  _________________
+  =================
   [quote P] : name;)
 
 (datatype zero
@@ -35,7 +35,7 @@
 
   Zero : zero;
   ==============
-  zero : process;
+  Zero : process;
   )
 
 (datatype input
@@ -84,7 +84,14 @@
   Name : name;
   Process : process;
   =============================
-  [lift Name Process] : lift;)
+  [lift Name Process] : lift;
+
+
+  Lift : lift;
+  ============
+  Lift : process;
+
+  )
 
 (datatype action
   N0 : name;
@@ -122,3 +129,43 @@
   [par LProclist] Proc -> [par (append LProclist [Proc])]
   Proc [par RProclist] -> [par (cons Proc RProclist)]
   Proc1 Proc2 -> [par [Proc1 Proc2]])
+
+(define parstar
+  {(list process) --> process}
+  [] -> []
+  [Proclisthd | Proclisttl] ->
+  (->par Proclisthd (parstar Proclisttl)))
+
+
+(declare name-quote-depth [name --> number])
+
+(define action->nsubj
+  {action --> name}
+  [action NSubj NObj] -> NSubj)
+
+(define process-quote-depth
+  {process --> number}
+  [] -> 0
+  [input Action Cont] ->
+  (let
+      QDSubj (name-quote-depth
+              (action->nsubj Action))
+      QDCont (process-quote-depth Cont)
+
+    (if (>= QDSubj QDCont)
+        QDSubj
+        QDCont))
+  [lift NSubj Cont] ->
+  (let
+      QDSubj (name-quote-depth NSubj)
+      QDCont (process-quote-depth Cont)
+
+    (if (>= QDSubj QDCont)
+        QDSubj
+        QDCont)))
+
+(define name-quote-depth
+  {name --> number}
+  [quote Proc] ->
+  (+ 1
+     (process-quote-depth Proc)))
