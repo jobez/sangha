@@ -1,15 +1,27 @@
-(datatype subtype
+(datatype globals
+  ______________________
+  append : (list process -->
+           (list process) -->
+            (list process));
+  )
 
-  (subtype A B); X : A;
-  _____________________
-  X : B;)
+\* (datatype subtype *\
+
+\*   (subtype A B); X : A; *\
+\*   _____________________ *\
+\*   X : B;) *\
+
 
 (datatype process
 
-  X : process;
-  Y : process;
-  ====================
-  [ X | Y ] : process;)
+  [X | Y] : (list process);
+  _________________________
+  [ X | Y ] : process;
+
+
+  )
+
+(synonyms processes (list processes) )
 
 (datatype name
 
@@ -21,8 +33,10 @@
   _______________
   [] : zero;
 
-  ______________________
-  (subtype zero process);)
+  Zero : zero;
+  ==============
+  zero : process;
+  )
 
 (datatype input
   Act : action;
@@ -30,8 +44,11 @@
   ===================
   [input Act Proc] : input;
 
-  _______________________
-  (subtype input process);)
+  Input : input;
+  =========================
+  Input : process;
+
+  )
 
 (datatype drop
 
@@ -39,19 +56,28 @@
   =====================
   [drop Name] : drop;
 
-  _______________________
-  (subtype drop process);)
+  Drop : drop;
+  ============
+  Drop : process;
+  )
 
 
 (datatype par
 
-  Proc : process;
-  Procs : (list process);
+  Proc : (list process);
   =============================
-  [par Proc | Procs] : par;
+  [par Proc] : par;
 
-  _______________________
-  (subtype par process);)
+
+  Proc : process;
+  =============================
+  [par Proc] : par;
+
+
+  Par : par;
+  ==============
+  Par : process;
+  )
 
 (datatype lift
 
@@ -81,3 +107,18 @@
   [action [quote Proc1] [quote Proc2]] Cont -> [input [action [quote Proc1]
                                                               [quote Proc2]]
                                                       Cont])
+
+(define ->lift
+  {name --> process --> lift}
+  NSubj Cont -> [lift NSubj Cont])
+
+(define ->drop
+  {name --> drop}
+  N -> [drop N])
+
+(define ->par
+  {process --> process --> par}
+  [par Proclist1] [par Proclist2] -> [par (append Proclist1 Proclist2)]
+  [par LProclist] Proc -> [par (append LProclist [Proc])]
+  Proc [par RProclist] -> [par (cons Proc RProclist)]
+  Proc1 Proc2 -> [par [Proc1 Proc2]])
