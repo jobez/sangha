@@ -1,3 +1,7 @@
+(define foldl
+  F Acc [] -> Acc
+  F Acc [X | Rest] -> (foldl F (F Acc X) Rest))
+
 (define parse-ml
   ML-Rules -> (compile (function <ml-rules>)
                        ML-Rules))
@@ -67,7 +71,14 @@
 
 (datatype globals
   ______________________
-  name-quote-depth : (name --> number);)
+  name-quote-depth : (name --> number);
+
+  _____________________________________
+  free-names-helper : ((list name) --> process --> (list name));
+
+  _________________________________________
+  free-names : (process --> (list name));
+  )
 
 (define guard
   {name --> name --> action}
@@ -169,11 +180,7 @@
    (not (element? X Y)) : verified >> Y : (without X);)
 
 
-(define un
-  {(set A) --> (set A) --> (set A)}
-  [] S -> S
-  [X | Y] S -> [X | (un Y S)]     where (not (element? X (un Y S)))
-  [_ | Y] S -> (un Y S))
+
 
 \* elements that are in A but not in B *\
 
@@ -224,3 +231,41 @@
         (if (< Qdp1 Qdp2)
             -1
             1))))
+
+\* elements in lhs not in rhs *\
+
+
+
+(define processes->names
+  {(list process) --> (list name)}
+  [] -> [[quote zero]]
+  [Prochd | Proctl] -> (union (free-names Prochd)
+                              (processes->names Proctl)))
+
+(define free-names
+  {process --> (list name)}
+  zero -> []
+  [input [action NSubj NObj] Cont] -> (cons
+                                       NSubj
+                                       (difference
+                                        (free-names Cont)
+                                        [NObj]))
+  [lift NSubj Cont] -> (cons NSubj
+                             (free-names Cont))
+  [drop Name] -> [Name]
+  [par Processes] -> (processes->names Processes))
+
+(define processes->par
+  {(list process) --> process}
+  [] -> zero
+  [Prochd | Proctl] -> (->par Prochd (processes->par Proctl)))
+
+(define calculate-next-name
+  {process --> name}
+  zero -> [quote zero]
+  [input [action [quote PSubj] [quote PObj]] Cont] ->
+  [quote (parstar [PSubj PObj Cont])]
+  [lift [quote PSubj] Cont] -> [quote (->par PSubj Cont)]
+  [drop [quote Proc]] -> [quote (->par Proc Proc) ]
+  [par Processes] ->  [quote (processes->par Processes)]
+  [par []] -> [quote zero])
