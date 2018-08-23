@@ -75,3 +75,9 @@
   {name --> name --> process --> input}
   NSubj NObj Cont -> [input [action NSubj NObj]
                             Cont])
+
+(define prefix
+  {action --> process --> input}
+  [action [quote Proc1] [quote Proc2]] Cont -> [input [action [quote Proc1]
+                                                              [quote Proc2]]
+                                                      Cont])
