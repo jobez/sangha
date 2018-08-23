@@ -1,3 +1,31 @@
+(datatype set
+
+   _____________
+   [] : (set A);
+
+   X : A; Y : ((set A) & (without X));
+   ===================================
+   [X | Y] : (mode (set A) -);
+
+   X : (set A);
+   _____________
+   X : (list A);
+
+   X : P; X : Q;
+   ====================
+   X : (mode (P & Q) -);
+
+   ________________
+   [] : (without X);
+
+   if (not (= X Z))
+   Y : (without Z);
+   ______________________
+   [X | Y] : (without Z);
+
+   ______________________________________________
+   (not (element? X Y)) : verified >> Y : (without X);)
+
 (define foldl
   F Acc [] -> Acc
   F Acc [X | Rest] -> (foldl F (F Acc X) Rest))
@@ -78,6 +106,9 @@
 
   _________________________________________
   free-names : (process --> (list name));
+
+  _________________________________________
+  name-equivalent : (name --> name --> boolean);
   )
 
 (define guard
@@ -151,38 +182,6 @@
   (+ 1
      (process-quote-depth Proc)))
 
-(datatype set
-
-   _____________
-   [] : (set A);
-
-   X : A; Y : ((set A) & (without X));
-   ===================================
-   [X | Y] : (mode (set A) -);
-
-   X : (set A);
-   _____________
-   X : (list A);
-
-   X : P; X : Q;
-   ====================
-   X : (mode (P & Q) -);
-
-   ________________
-   [] : (without X);
-
-   if (not (= X Z))
-   Y : (without Z);
-   ______________________
-   [X | Y] : (without Z);
-
-   ______________________________________________
-   (not (element? X Y)) : verified >> Y : (without X);)
-
-
-
-
-\* elements that are in A but not in B *\
 
 (datatype rho-compare-process
   __________________________________________
@@ -269,3 +268,63 @@
   [drop [quote Proc]] -> [quote (->par Proc Proc) ]
   [par Processes] ->  [quote (processes->par Processes)]
   [par []] -> [quote zero])
+
+
+\* why does map typecheck in this case? *\
+
+(define syntactic-substitution
+  {process --> name --> name --> process}
+  zero _ _ -> zero
+  [input [action NSubj NObj] Cont] NSource NTarget ->
+  (let
+      Obj (if (name-equivalent NObj NTarget)
+               (calculate-next-name [input [action NSubj NObj] Cont])
+               NObj)
+      N0 (if (name-equivalent NSubj NTarget)
+             NSource
+             NSubj)
+      Contt (syntactic-substitution
+            (if (name-equivalent NObj NTarget)
+                (syntactic-substitution Cont Obj NObj)
+                Cont)
+            NSource
+            NTarget)
+    [input [action N0 Obj] Contt])
+  [lift NSubj Cont] NSource NTarget ->
+  [lift (if (name-equivalent NSubj NTarget)
+            NSource
+            NSubj)
+        (syntactic-substitution Cont NSource NTarget)]
+  [drop Name] NSource NTarget ->
+  [drop (if (name-equivalent Name NTarget)
+            NSource
+            Name)]
+  [par Proclist] NSource NTarget ->
+  [par (map (/. Proc
+                (syntactic-substitution
+                 Proc NSource NTarget))
+            Proclist)])
+
+(define alpha-equivalent
+  {process --> process --> boolean}
+  [input [action NSubj1 NObj1] Cont1]  [input [action NSubj2 NObj2] Cont2] ->
+  (and (name-equivalent NSubj1 NSubj2)
+       (= Cont1 (syntactic-substitution Cont2 NObj1 NObj2)))
+  Proc1 Proc2 -> (= Proc1 Proc2))
+
+
+(define structurally-equivalent
+  {process --> process --> boolean}
+  zero [par []] -> true
+  [par []] zero -> true
+  zero [par [Proclisthd | Proclisttl]] ->
+  (and (structurally-equivalent zero Proclisthd)
+       (structurally-equivalent zero [par Proclisttl]))
+  [par [Proclisthd | Proclisttl]] zero ->
+  (structurally-equivalent zero [par (cons Proclisthd Proclisttl)])
+  [input [action NSubj1 NObj1] Cont1] [input [action NSubj2 NObj2] Cont2] ->
+  (and (name-equivalent NSubj1 NSubj2)
+       (structurally-equivalent Cont1
+                                (syntactic-substitution Cont2 NObj1 NObj2)))
+
+)
