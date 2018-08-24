@@ -109,6 +109,9 @@
 
   _________________________________________
   name-equivalent : (name --> name --> boolean);
+
+  ____________________________________________________________
+  structurally-equivalent : (process --> process --> boolean);
   )
 
 (define guard
@@ -313,6 +316,51 @@
   Proc1 Proc2 -> (= Proc1 Proc2))
 
 
+
+(define divide
+  {(A --> boolean) --> (list A) --> (list A) --> (list A) --> ( (list A) * (list A))}
+  _ [] Yes No -> (@p Yes No)
+  F [X | Y] Yes No -> (if (F X)
+                          (divide F Y
+                                  [X | Yes] No)
+                          (divide F Y
+                                  Yes [X | No])))
+
+(define partition
+  {(A --> A --> boolean) --> (list A) --> (list (list A))}
+  _ [] -> []
+  R [X | Y] -> (let Divide (divide (/. Z (R X Z))
+                                   [X | Y] [] [])
+                    Yes (fst Divide)
+                    No (snd Divide)
+                 [Yes | (partition R No)]))
+
+
+(define structurally-equivalent-helper2
+  {(list process) --> (list process)  -->
+   (boolean * process * (list process)) -->
+   (list process) --> boolean}
+  _ _ (@p Answer _ _) [] -> Answer
+  Proclisttl1 ProcsNotEquiv (@p false R L) [Prochd | Proctl] ->
+  (if (structurally-equivalent
+       (parstar (cons R
+                      (append L ProcsNotEquiv)))
+       [par Proclisttl1])
+      (structurally-equivalent-helper2
+       Proclisttl1 ProcsNotEquiv (@p true R L) Proctl)
+       (structurally-equivalent-helper2
+       Proclisttl1 ProcsNotEquiv (@p false zero (tail ProcsNotEquiv)) Proctl))
+
+  Proclisttl1 ProcsNotEquiv (@p true R L) [_ | Proctl] ->
+  (structurally-equivalent-helper2 Proclisttl1 ProcsNotEquiv (@p true R L) Proctl))
+
+(define structurally-equivalent-helper1
+  { (list process) --> (list (list process)) --> boolean}
+  _ [[] No] -> false
+  Proclisttl1 [YesEquiv NotEquiv] -> (structurally-equivalent-helper2
+                                      Proclisttl1 NotEquiv
+                                      (@p false zero (tail YesEquiv)) YesEquiv))
+
 (define structurally-equivalent
   {process --> process --> boolean}
   zero [par []] -> true
@@ -326,5 +374,8 @@
   (and (name-equivalent NSubj1 NSubj2)
        (structurally-equivalent Cont1
                                 (syntactic-substitution Cont2 NObj1 NObj2)))
-
-)
+  [par [Proclisthd1 | Proclisttl1 ]] [par Proclist2] ->
+  (structurally-equivalent-helper1 Proclisttl1 (partition
+                                                (/. Proc (structurally-equivalent
+                                                          Proclisthd1 Proc))
+                                                Proclist2)))
