@@ -86,12 +86,13 @@
   ML-Rules -> (compile (function <ml-rules>)
                        ML-Rules))
 
+
 (ml-datatype process =
              zero,
              input of action process,
              lift of name process,
-             drop of name,
-             par of (list process) )
+             par of (list process),
+             drop of name)
 
 (ml-datatype action = action of name name)
 
@@ -327,13 +328,20 @@
                                   Yes [X | No])))
 
 (define partition
-  {(A --> A --> boolean) --> (list A) --> (list (list A))}
+  {(A --> boolean) --> (list A) --> (list (list A))}
   _ [] -> []
-  R [X | Y] -> (let Divide (divide (/. Z (R X Z))
+  R [X | Y] -> (let Divide (divide R
                                    [X | Y] [] [])
                     Yes (fst Divide)
                     No (snd Divide)
                  [Yes | (partition R No)]))
+
+\* 0 is the identity for part *\
+(define structurally-equivalent-helper3
+  {(list (list process)) --> boolean}
+  [[] NotEquiv] -> false
+  [[SingleEquivProc] NotEquiv] -> (structurally-equivalent zero [par NotEquiv])
+  [[Equivhd | Equivtail] _] -> false)
 
 
 (define structurally-equivalent-helper2
@@ -374,8 +382,58 @@
   (and (name-equivalent NSubj1 NSubj2)
        (structurally-equivalent Cont1
                                 (syntactic-substitution Cont2 NObj1 NObj2)))
+  \* par is commutative and associative' *\
   [par [Proclisthd1 | Proclisttl1 ]] [par Proclist2] ->
   (structurally-equivalent-helper1 Proclisttl1 (partition
                                                 (/. Proc (structurally-equivalent
                                                           Proclisthd1 Proc))
-                                                Proclist2)))
+                                                Proclist2))
+  [par Proclist1] [par [Proclisthd2 | Proclisttl2 ]] ->
+  (structurally-equivalent [par [Proclisthd2 | Proclisttl2]] [par Proclist1])
+  Proc1 [par Proclist] -> (structurally-equivalent-helper3 (partition
+                                                            (/. Proc
+                                                                (structurally-equivalent Proc1 Proc))
+                                                            Proclist))
+  [par Proclist] Proc2 ->
+  (structurally-equivalent Proc2 [par Proclist])
+  Proc1 Proc2 -> (= Proc1 Proc2))
+
+
+(define name-equivalent
+  {name --> name --> boolean}
+  [quote [drop N1]] N2 -> (name-equivalent N1 N2)
+  N1 [quote [drop N2]] -> (name-equivalent N1 N2)
+  [quote P1] [quote P2] -> (structurally-equivalent P1 P2))
+
+
+(define substitute
+  {name --> name --> process --> process}
+  _ _ zero -> zero
+  Y X [input [action A B] Q] ->
+  (let A' (if (name-equivalent A X)
+              Y
+              A)
+       B' (if (name-equivalent B X)
+              [quote [par [[drop B] Q]]]
+              B)
+       Q'' (if (name-equivalent B X)
+               (substitute B' B Q)
+               Q)
+       Q' (substitute Y X Q)
+    [input [action A' B'] Q'])
+  Y X [lift A Q] ->
+  (let A' (if (name-equivalent A X)
+              Y
+              A)
+       Q'  (substitute Y X Q)
+    [lift A' Q'])
+  Y X [par Proclist] ->
+  (let Proclist' (map (/. Proc
+                          (substitute Y X Proc))
+                      Proclist)
+    [par Proclist'])
+  Y X [drop A] ->
+  (let A' (if (name-equivalent A X)
+              Y
+              A)
+    [drop A']))
