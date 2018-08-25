@@ -26,6 +26,21 @@
    ______________________________________________
    (not (element? X Y)) : verified >> Y : (without X);)
 
+(lisp. "(DEFUN to-bits (INTEGER)
+  (LET ((BITS '()))
+    (DOTIMES (POS (INTEGER-LENGTH INTEGER) BITS)
+      (PUSH (LDB (BYTE 1 POS) INTEGER) BITS))))")
+
+(lisp. "(DEFUN to-number (NLIST)
+  (IF NLIST
+      (LET ((X (CAR NLIST))
+            (Xs (CDR NLIST)))
+        (+ (* (EXPT (1-  (LENGTH NLIST))
+                    2)
+              X)
+           (to-number Xs)))
+      0))" )
+
 (define foldl
   F Acc [] -> Acc
   F Acc [X | Rest] -> (foldl F (F Acc X) Rest))
@@ -96,7 +111,9 @@
 
 (ml-datatype action = action of name name)
 
-(ml-datatype name = quote of process)
+(ml-datatype name =
+             quote of process,
+             address of number)
 
 (datatype globals
   ______________________
@@ -113,7 +130,27 @@
 
   ____________________________________________________________
   structurally-equivalent : (process --> process --> boolean);
+
+  ___________________________________________
+  to-bits : (number --> (list number));
+
+  ___________________________________________
+  to-number : ((list number) --> number);
+
+  __________
+  (value n0) : name;
+
+  __________
+  (value n2) : name;
+
+  ___________
+  (value p1) : process;
+  ____________
+  (value p2) : process;
+  _____________
+  (value p3) : process;
   )
+
 
 (define guard
   {name --> name --> action}
@@ -403,7 +440,9 @@
   {name --> name --> boolean}
   [quote [drop N1]] N2 -> (name-equivalent N1 N2)
   N1 [quote [drop N2]] -> (name-equivalent N1 N2)
-  [quote P1] [quote P2] -> (structurally-equivalent P1 P2))
+  [quote P1] [quote P2] -> (structurally-equivalent P1 P2)
+  [address Debruijnidx1] [address Debruijnidx2] ->
+  (= Debruijnidx1 Debruijnidx2))
 
 
 (define substitute
@@ -437,3 +476,51 @@
               Y
               A)
     [drop A']))
+
+
+
+(define deBruijnify
+  {process --> number --> number --> number --> process}
+  zero L W H -> zero
+  [input [action [quote Px] Y] Q] L W H ->
+  (let Dbnidx (to-number
+               (append
+                (to-bits L)
+                (to-bits W)
+                (to-bits H)))
+       Dbny [address Dbnidx]
+       Q'  (deBruijnify Q (+ L 1) W H)
+       Q'' (substitute Dbny Y Q')
+       X  [quote (deBruijnify Px L W (+ H 1))]
+    [input [action X Dbny] Q''])
+  [lift [quote Px] Q] L W H ->
+  (let X [quote (deBruijnify Px L W (+ 1 H))]
+       Q' (deBruijnify Q L W H)
+    [lift X Q'])
+  [par [Proclisthd | Proclisttl]] L W H ->
+  [par (cons
+        (deBruijnify Proclisthd L W H)
+        (map (/. Proc
+                  (deBruijnify Proc L W (+ H 1)))
+              Proclisttl))]
+  [drop [quote Px]] L W H ->
+  (let X [quote (deBruijnify Px L W (+ H 1))]
+    [drop X])
+  [drop [address Addr]] L W H -> [drop [address Addr]])
+
+(set n0 [quote zero])
+(set n2 [quote [drop [quote [drop (value n0)]]]])
+
+(set p1 [par [[drop (value n2)]
+              zero]])
+
+(set p2 [input [action (value n0)
+                       (value n2)]
+               (value p1)])
+
+(set p3 [input [action (value n2)
+                       (value n0)]
+               (value p1)])
+
+(deBruijnify (value p2) 0 0 0)
+(deBruijnify (value p3) 0 0 0)
