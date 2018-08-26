@@ -1,3 +1,5 @@
+\* https://i.imgur.com/p4eYydh.png *\
+
 (datatype globals
   ______________________
   name-quote-depth : (name --> number);

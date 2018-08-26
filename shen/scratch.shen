@@ -52,5 +52,21 @@
                        (value n0)]
                (value p1)])
 
+(structure-equivalent )
+
 (deBruijnify (value p2) 0 0 0)
 (deBruijnify (value p3) 0 0 0)
+(track partition)
+(track divide)
+(track structurally-equivalent-helper1)
+(track structurally-equivalent-helper2)
+(track structurally-equivalent)
+
+(structurally-equivalent [par [zero [eval [quote zero]] zero zero]]
+                         [par [[eval [quote zero]] zero zero zero]])
+
+(structurally-equivalent [par [zero [eval [quote zero]]]] [par [[eval [quote zero]] zero]])
+
+(structurally-equivalent [par []] zero)
+
+(structurally-equivalent [par [zero]] [par [zero]])
