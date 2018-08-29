@@ -38,19 +38,23 @@
 (load "rho-grammar.shen")
 
 
+
 (set n0 [quote zero])
 (set n2 [quote [eval [quote [eval (value n0)]]]])
 
 (set p1 [par [[eval (value n2)]
-              zero]])
+              zero
+              [eval [quote [eval [quote zero]]]]]])
 
 (set p2 [input [action (value n0)
                        (value n2)]
                (value p1)])
 
-(set p3 [input [action (value n2)
-                       (value n0)]
-               (value p1)])
+(set p3 [input
+         [action [quote [eval [quote [eval [quote zero]]]]]
+                 [quote zero]]
+         [output (value n2)
+                 (value p2)]])
 
 (structure-equivalent )
 
@@ -65,8 +69,16 @@
 (structurally-equivalent [par [zero [eval [quote zero]] zero zero]]
                          [par [[eval [quote zero]] zero zero zero]])
 
-(structurally-equivalent [par [zero [eval [quote zero]]]] [par [[eval [quote zero]] zero]])
+(structurally-equivalent [par [[eval [quote zero]]  zero zero]] [par [zero [eval [quote zero]] zero zero zero zero zero]])
 
-(structurally-equivalent [par []] zero)
+(structurally-equivalent [par [zero zero zero zero]]
+                         [par []])
 
-(structurally-equivalent [par [zero]] [par [zero]])
+(structurally-equivalent [par [zero [par [zero]]]]
+                         [par [zero [par [zero]]]])
+
+(free-names [par [zero [eval [quote zero]] zero zero]])
+
+(substitute [input [action [address 0] [address 1]] [eval [quote zero]]]
+            [quote [eval [quote zero]]]
+            [address 1])

@@ -212,20 +212,20 @@
    (boolean *
     (list process) *
     (list process)) -->
-   (list process) --> boolean}
+    (list process) --> boolean}
   _ _ (@p Answer _ _) [] -> Answer
   Proclisttl1 []
   (@p false R L) [Prochd | Proctl] ->
   (if (structurally-equivalent
-       [par (append R L                    )]
+       (parstar (append R L))
        [par Proclisttl1])
       (structurally-equivalent-helper2
        Proclisttl1 [] (@p true R L) Proctl)
-       (structurally-equivalent-helper2
-        Proclisttl1 [] (@p false
-                                      (append R [Prochd])
-                                      [])
-        Proctl))
+      (structurally-equivalent-helper2
+       Proclisttl1 [] (@p false
+                          (append R [Prochd])
+                          [])
+       Proctl))
   Proclisttl1 ProcsNotEquiv
   (@p false R L) [Prochd | Proctl] ->
   (if (structurally-equivalent
@@ -235,11 +235,11 @@
        [par Proclisttl1])
       (structurally-equivalent-helper2
        Proclisttl1 ProcsNotEquiv (@p true R L) Proctl)
-       (structurally-equivalent-helper2
-        Proclisttl1 ProcsNotEquiv (@p false
-                                      (append R [Prochd])
-                                      (tail ProcsNotEquiv))
-        Proctl))
+      (structurally-equivalent-helper2
+       Proclisttl1 ProcsNotEquiv (@p false
+                                     (append R [Prochd])
+                                     (tail ProcsNotEquiv))
+       Proctl))
 
   Proclisttl1 ProcsNotEquiv (@p true R L) [_ | Proctl] ->
   (structurally-equivalent-helper2
@@ -252,8 +252,8 @@
   _ (@p nothing _) -> false
   Proclisttl1 (@p [just YesEquiv]
                   nothing) -> (structurally-equivalent-helper2
-                                      Proclisttl1 []
-                                      (@p false [] (tail YesEquiv)) YesEquiv)
+                               Proclisttl1 []
+                               (@p false [] (tail YesEquiv)) YesEquiv)
   Proclisttl1 (@p [just YesEquiv]
                   [just NotEquiv]) -> (structurally-equivalent-helper2
                                       Proclisttl1 NotEquiv
@@ -278,6 +278,11 @@
                                 (syntactic-substitution Cont2 NObj1 NObj2)))
 
   \* par is commutative and associative' *\
+  [par [Proclisthd1 | Proclisttl1 ]] [par []] ->
+  (structurally-equivalent-helper1 Proclisttl1 (partition
+                                                (/. Proc (structurally-equivalent
+                                                          Proclisthd1 Proc))
+                                                [zero]))
   [par [Proclisthd1 | Proclisttl1 ]] [par Proclist2] ->
   (structurally-equivalent-helper1 Proclisttl1 (partition
                                                 (/. Proc (structurally-equivalent
@@ -295,22 +300,25 @@
   [par Proclist] Proc2 ->
   (structurally-equivalent Proc2 [par Proclist])
 
+  \* structural equivalence includes syntactic equality *\
   Proc1 Proc2 -> (== Proc1 Proc2))
 
-
+\* ?unifying addresses and quotes *\
 (define name-equivalent
   {name --> name --> boolean}
   [quote [eval N1]] N2 -> (name-equivalent N1 N2)
   N1 [quote [eval N2]] -> (name-equivalent N1 N2)
   [quote P1] [quote P2] -> (structurally-equivalent P1 P2)
   [address Debruijnidx1] [address Debruijnidx2] ->
-  (= Debruijnidx1 Debruijnidx2))
+  (= Debruijnidx1 Debruijnidx2)
+  [address Debruijnidx1] [quote P1] ->
+  true)
 
 
 (define substitute
-  {name --> name --> process --> process}
-  _ _ zero -> zero
-  Y X [input [action A B] Q] ->
+  {process --> name --> name --> process}
+  zero _ _ -> zero
+  [input [action A B] Q] Y X ->
   (let A' (if (name-equivalent A X)
               Y
               A)
@@ -318,22 +326,22 @@
               [quote [par [[eval B] Q]]]
               B)
        Q'' (if (name-equivalent B X)
-               (substitute B' B Q)
+               (substitute Q B' B )
                Q)
-       Q' (substitute Y X Q)
+       Q' (substitute Q Y X)
     [input [action A' B'] Q'])
-  Y X [output A Q] ->
+  [output A Q] Y X  ->
   (let A' (if (name-equivalent A X)
               Y
               A)
-       Q'  (substitute Y X Q)
+       Q'  (substitute Q Y X)
     [output A' Q'])
-  Y X [par Proclist] ->
+  [par Proclist] Y X  ->
   (let Proclist' (map (/. Proc
-                          (substitute Y X Proc))
+                          (substitute Proc Y X ))
                       Proclist)
     [par Proclist'])
-  Y X [eval A] ->
+  [eval A] Y X  ->
   (let A' (if (name-equivalent A X)
               Y
               A)
@@ -351,7 +359,7 @@
                 (to-bits H)))
        Dbny [address Dbnidx]
        Q'  (deBruijnify Q (+ L 1) W H)
-       Q'' (substitute Dbny Y Q')
+       Q'' (substitute Q' Dbny Y )
        X  [quote (deBruijnify Px L W (+ H 1))]
     [input [action X Dbny] Q''])
   [output [quote Px] Q] L W H ->
@@ -363,7 +371,7 @@
   [par (cons
         (deBruijnify Proclisthd L W H)
         (map (/. Proc
-                  (deBruijnify Proc L W (+ H 1)))
+                  (deBruijnify Proc L (+ W 1) H ))
              Proclisttl))]
 
   [eval [quote Px]] L W H ->
