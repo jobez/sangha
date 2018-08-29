@@ -38,12 +38,10 @@
 
 (ml-datatype process =
              zero,
-             input of action process,
+             input of name name process,
              output of name process,
              par of (list process),
              eval of name)
-
-(ml-datatype action = action of name name)
 
 (ml-datatype name =
              quote of process,

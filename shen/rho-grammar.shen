@@ -35,27 +35,6 @@
           []
           []))
 
-
-
-(define guard
-  {name --> name --> action}
-  NSubj NObj -> [action NSubj NObj])
-
-(define ->input
-  {name --> name --> process --> process}
-  NSubj NObj Cont -> [input [action NSubj NObj]
-                            Cont])
-
-(define prefix
-  {action --> process --> process}
-  [action [quote Proc1]
-          [quote Proc2]] Cont ->
-          [input [action
-                  [quote
-                   Proc1]
-                  [quote Proc2]]
-                 Cont])
-
 (define ->lift
   {name --> process --> process}
   NSubj Cont -> [output NSubj Cont])
@@ -80,7 +59,7 @@
 (define process-quote-depth
   {process --> number}
   zero -> 0
-  [input [action NSubj _] Cont] ->
+  [input NSubj _ Cont] ->
   (let
       QDSubj (name-quote-depth
               NSubj)
@@ -165,7 +144,7 @@
 (define free-names
   {process --> (list name)}
   zero -> []
-  [input [action NSubj NObj] Cont] -> (adjoin
+  [input NSubj NObj Cont] -> (adjoin
                                        NSubj
                                        (difference
                                         (free-names Cont)
@@ -184,7 +163,7 @@
   {process --> name}
   zero ->
   [quote zero]
-  [input [action [quote PSubj] [quote PObj]] Cont] ->
+  [input [quote PSubj] [quote PObj] Cont] ->
   [quote (parstar [PSubj PObj Cont])]
   [output [quote PSubj] Cont] ->
   [quote (->par PSubj Cont)]
@@ -198,10 +177,10 @@
 (define syntactic-substitution
   {process --> name --> name --> process}
   zero _ _ -> zero
-  [input [action NSubj NObj] Cont] NSource NTarget ->
+  [input NSubj NObj Cont] NSource NTarget ->
   (let
       Obj (if (name-equivalent NObj NTarget)
-               (calculate-next-name [input [action NSubj NObj] Cont])
+              (calculate-next-name [input NSubj NObj Cont])
                NObj)
       N0 (if (name-equivalent NSubj NTarget)
              NSource
@@ -212,7 +191,7 @@
                 Cont)
             NSource
             NTarget)
-    [input [action N0 Obj] Contt])
+    [input  N0 Obj  Contt])
   [output NSubj Cont] NSource NTarget ->
   [output (if (name-equivalent NSubj NTarget)
               NSource
@@ -230,8 +209,8 @@
 
 (define alpha-equivalent
   {process --> process --> boolean}
-  [input [action NSubj1 NObj1] Cont1]
-  [input [action NSubj2 NObj2] Cont2] ->
+  [input  NSubj1 NObj1 Cont1]
+  [input  NSubj2 NObj2 Cont2] ->
   (and (name-equivalent NSubj1 NSubj2)
        (= Cont1 (syntactic-substitution Cont2 NObj1 NObj2)))
   Proc1 Proc2 -> (= Proc1 Proc2))
@@ -311,7 +290,7 @@
   (structurally-equivalent zero [par [ Proclisthd | Proclisttl]])
 
   \* structural equivalence includes alpha equivalence *\
-  [input [action NSubj1 NObj1] Cont1] [input [action NSubj2 NObj2] Cont2] ->
+  [input NSubj1 NObj1 Cont1] [input NSubj2 NObj2 Cont2] ->
   (and (name-equivalent NSubj1 NSubj2)
        (structurally-equivalent Cont1
                                 (syntactic-substitution Cont2 NObj1 NObj2)))
@@ -357,7 +336,7 @@
 (define substitute
   {process --> name --> name --> process}
   zero _ _ -> zero
-  [input [action A B] Q] Y X ->
+  [input A B Q] Y X ->
   (let A' (if (name-equivalent A X)
               Y
               A)
@@ -368,7 +347,7 @@
                (substitute Q B' B )
                Q)
        Q' (substitute Q Y X)
-    [input [action A' B'] Q'])
+    [input  A' B' Q'])
   [output A Q] Y X  ->
   (let A' (if (name-equivalent A X)
               Y
@@ -389,29 +368,28 @@
 (define syntactic-substitution
   {process --> name --> name --> process}
   zero _ _ -> zero
-  [input [action NSubj NObj] Cont]
+  [input NSubj NObj Cont]
   NSource
   NTarget ->
   (let
       Obj (if (name-equivalent NObj
                                NTarget)
               \* nobj 'is' ntarget replaced with name-equality *\
-               (calculate-next-name
-                [input
-                 [action
-                  NSubj
-                  NObj]
-                       Cont])
-               NObj)
+              (calculate-next-name
+               [input
+                NSubj
+                NObj
+                Cont])
+              NObj)
 
       NSubj' (if (name-equivalent NSubj
                                   NTarget)
                  \* nsubj 'is' ntarget replaced with name equality *\
-                          NSource
-                          NSubj)
+                 NSource
+                 NSubj)
 
-    [input [action NSubj'
-                   Obj]
+    [input NSubj'
+           Obj
            Cont])
   [output NSubj Cont]
   NSource
@@ -445,7 +423,7 @@
   {process --> number --> number --> number --> process}
   zero L W H -> zero
 
-  [input [action [quote Px] Y] Q] L W H ->
+  [input [quote Px] Y Q] L W H ->
   (let Dbnidx (to-number
                (append
                 (to-bits L)
@@ -453,9 +431,9 @@
                 (to-bits H)))
        Dbny [address Dbnidx]
        Q'  (deBruijnify Q (+ L 1) W H)
-       Q'' (substitute Q' Dbny Y )
+       Q'' (syntactic-substitution Q' Dbny Y )
        X  [quote (deBruijnify Px L W (+ H 1))]
-    [input [action X Dbny] Q''])
+    [input X Dbny Q''])
   [output [quote Px] Q] L W H ->
   (let X [quote (deBruijnify Px L W (+ 1 H))]
        Q' (deBruijnify Q L W H)

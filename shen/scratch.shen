@@ -144,17 +144,33 @@
      zero]]]])
 
 
+(deBruijnify [input [action
+                     [quote
+                      [par
+                       [
 
-[input [action [quote zero]
-               [quote
-                [par
-                 [[eval [quote
-                         [eval
-                          [quote
-                           [output
-                            [quote zero]
-                            zero]]]]]
-                  [eval [quote zero]]]]]]
-       [eval [quote zero]]]
+
+
+                        [eval [quote
+                               [eval
+                                [quote
+                                 [output
+                                  [quote zero]
+                                  zero]]]]]
+                        [eval [quote zero]]]]]
+                            [quote zero]]
+                    [input [action
+
+                                [quote
+                                 [output
+                                  [quote zero]
+                                  zero]]
+                                [quote zero]]
+                               zero]
+                    ]
+             0
+             0
+             0)
+
 
 (name-equivalent [quote [eval [quote [output [quote zero] zero]]]] [quote zero])
