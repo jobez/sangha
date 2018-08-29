@@ -37,8 +37,6 @@
 
 (load "rho-grammar.shen")
 
-
-
 (set n0 [quote zero])
 (set n2 [quote [eval [quote [eval (value n0)]]]])
 

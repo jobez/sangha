@@ -1,3 +1,42 @@
+(datatype maybe
+  X : A;
+  ======================
+  [just X] : (maybe A);
+
+  ____________________
+  nothing : (maybe A);)
+
+
+(define divide
+  {(A --> boolean) --> (list A) --> (list A) -->
+   (list A) --> ( (maybe (list A)) * (maybe (list A)))}
+  _ [] [] [] ->
+  (@p nothing nothing)
+  _ [] [] No ->
+  (@p nothing [just No])
+    _ [] Yes [] ->
+  (@p [just Yes] nothing)
+  _ [] Yes No ->
+  (@p [just Yes] [just No])
+  F [X | Y] Yes No ->
+  (if (F X)
+      (divide F Y
+              [X | Yes] No)
+      (divide F Y
+              Yes [X | No])))
+
+(define partition
+  {(A --> boolean) --> (list A) --> ((maybe (list A))
+                                     * (maybe (list A)))}
+  _ [] -> (@p nothing nothing)
+  R Elements ->
+  (divide R
+          Elements
+          []
+          []))
+
+
+
 (define guard
   {name --> name --> action}
   NSubj NObj -> [action NSubj NObj])
@@ -217,7 +256,7 @@
   Proclisttl1 []
   (@p false R L) [Prochd | Proctl] ->
   (if (structurally-equivalent
-       (parstar (append R L))
+       [par (append R L)]
        [par Proclisttl1])
       (structurally-equivalent-helper2
        Proclisttl1 [] (@p true R L) Proctl)
