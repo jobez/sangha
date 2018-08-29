@@ -65,9 +65,13 @@
 (track structurally-equivalent-helper1)
 (track structurally-equivalent-helper2)
 (track structurally-equivalent)
+(track substitute)
+(track syntactic-substitution)
+(track calculate-next-name)
 
-(structurally-equivalent [par [zero [eval [quote zero]] zero zero]]
-                         [par [[eval [quote zero]] zero zero zero]])
+(structurally-equivalent
+ [par [zero [eval [quote zero]] zero zero]]
+ [par [[eval [quote zero]] zero zero zero]])
 
 (structurally-equivalent [par [[eval [quote zero]]  zero zero]] [par [zero [eval [quote zero]] zero zero zero zero zero]])
 
@@ -82,3 +86,77 @@
 (substitute [input [action [address 0] [address 1]] [eval [quote zero]]]
             [quote [eval [quote zero]]]
             [address 1])
+
+(substitute
+ [input
+  [action
+   [quote zero]
+   [quote [eval
+           [quote
+            [output
+             [quote zero]
+             zero]]]]]
+        [eval
+         [quote zero]]]
+
+ [quote
+  [eval
+   [quote zero]]]
+
+ [quote
+  [eval
+   [quote
+    [output
+     [quote zero]
+     zero]]]])
+
+[input [action [quote zero]
+               [quote [par
+                       [zero
+                        [eval
+                         [quote
+                          [output
+                           [quote zero]
+                           zero]]]
+                        [eval [quote zero]]
+                        zero]
+                       ] ]] [eval [quote zero]]]
+
+(syntactic-substitution
+ [input
+  [action
+   [quote zero]
+   [quote [eval
+           [quote
+            [output
+             [quote zero]
+             zero]]]]]
+  [eval
+   [quote zero]]]
+
+ [quote
+  [eval
+   [quote zero]]]
+
+ [quote
+  [eval
+   [quote
+    [output
+     [quote zero]
+     zero]]]])
+
+
+
+[input [action [quote zero]
+               [quote
+                [par
+                 [[eval [quote
+                         [eval
+                          [quote
+                           [output
+                            [quote zero]
+                            zero]]]]]
+                  [eval [quote zero]]]]]]
+       [eval [quote zero]]]
+
+(name-equivalent [quote [eval [quote [output [quote zero] zero]]]] [quote zero])

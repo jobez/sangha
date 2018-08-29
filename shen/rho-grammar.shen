@@ -347,6 +347,61 @@
               A)
     [eval A']))
 
+(define syntactic-substitution
+  {process --> name --> name --> process}
+  zero _ _ -> zero
+  [input [action NSubj NObj] Cont]
+  NSource
+  NTarget ->
+  (let
+      Obj (if (name-equivalent NObj
+                               NTarget)
+              \* nobj 'is' ntarget replaced with name-equality *\
+               (calculate-next-name
+                [input
+                 [action
+                  NSubj
+                  NObj]
+                       Cont])
+               NObj)
+
+      NSubj' (if (name-equivalent NSubj
+                                  NTarget)
+                 \* nsubj 'is' ntarget replaced with name equality *\
+                          NSource
+                          NSubj)
+
+    [input [action NSubj'
+                   Obj]
+           Cont])
+  [output NSubj Cont]
+  NSource
+  NTarget ->
+  (let
+      NSubj' (if (name-equivalent NSubj NTarget)
+                 \* nobj 'is' target replaced w/ name equality *\
+                 NSource
+                 NSubj)
+      Cont' (syntactic-substitution Cont
+                                    NSource
+                                    NTarget)
+    [output NSubj' Cont'])
+  [eval N] NSource NTarget ->
+  (let N' (if (name-equivalent N NTarget)
+              \* n 'is' ntarget replaced w/ name equality *\
+              NSource
+              N)
+    [eval N])
+  [par Proclist] NSource NTarget ->
+  (let Proclist' (map (/. Proc
+                          (syntactic-substitution
+                           Proc
+                           NSource
+                           NTarget)
+                          )
+                      Proclist)
+    [par Proclist']))
+
 (define deBruijnify
   {process --> number --> number --> number --> process}
   zero L W H -> zero
