@@ -145,12 +145,12 @@
   {process --> (list name)}
   zero -> []
   [input NSubj NObj Cont] -> (adjoin
-                                       NSubj
-                                       (difference
-                                        (free-names Cont)
-                                        [NObj]))
+                              NSubj
+                              (difference
+                               (free-names Cont)
+                               [NObj]))
   [output NSubj Cont] -> (adjoin NSubj
-                             (free-names Cont))
+                                 (free-names Cont))
   [eval Name] -> [Name]
   [par Processes] -> (processes->names Processes))
 
@@ -174,6 +174,8 @@
   [par []] ->
   [quote zero])
 
+\* process{substitution-source/substitution-target} *\
+\* pronounced as 'substitute target with source' *\
 (define syntactic-substitution
   {process --> name --> name --> process}
   zero _ _ -> zero
